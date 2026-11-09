@@ -1,7 +1,8 @@
 name: Merge policy
 
 # Two jobs, both required by harness/github/ruleset.json:
-#   human-gate   passes for low risk at once; for medium and high only with an approving review.
+#   human-gate   passes for low risk at once; for medium and high with the label human-approved
+#                (set by the person who reviewed) or an approving review; see decision 0006.
 #   auto-merge   enables GitHub auto-merge when every condition of harness/policies/auto-merge.md
 #                holds, and disables it otherwise. GitHub merges when all required checks pass.
 # Policy: harness/policies/auto-merge.md, decision: harness/decisions/0004.
@@ -57,13 +58,32 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           LEVEL: ${{ steps.level.outputs.level }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: |
           if [ "$LEVEL" = low ]; then
             echo "Risk low: no human review required (G2 does not apply)."; exit 0
           fi
+          label=$(awk '$1 == "human_approval_label:" { v=$2; gsub(/"/, "", v); print v; exit }' harness/config.yml)
+          second=$(awk '$1 == "second_reviewer_for:" { v=$2; gsub(/"/, "", v); print v; exit }' harness/config.yml)
           decision=$(gh pr view "$PR" --json reviewDecision --jq '.reviewDecision // ""')
           if [ "$decision" = APPROVED ]; then
-            echo "Risk $LEVEL: approving review present."; exit 0
+            echo "Risk $LEVEL: approving review by a second person present (G2)."; exit 0
+          fi
+          needs_second=0
+          case "$second" in
+            high) [ "$LEVEL" = high ] && needs_second=1 ;;
+            medium) needs_second=1 ;;
+          esac
+          if [ "$needs_second" = 1 ]; then
+            echo "Risk $LEVEL: harness/config.yml requires an approving review by a second person (second_reviewer_for: $second). reviewDecision=$decision"
+            exit 1
+          fi
+          if [ -n "$label" ]; then
+            case ",$LABELS," in
+              *",$label,"*) echo "Risk $LEVEL: label '$label' set by a person (G2)."; exit 0 ;;
+            esac
+            echo "Risk $LEVEL: after your review set the label '$label', or get an approving review (harness/policies/human-approval.md, G2)."
+            exit 1
           fi
           echo "Risk $LEVEL: an approving review by a person is required (harness/policies/human-approval.md, G2). reviewDecision=$decision"
           exit 1
