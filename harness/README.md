@@ -47,8 +47,10 @@ Project Context
    (gate G0).
 2. `/implement` reads the spec, runs the risk assessment, checks the ADR policy, plans (gate G1 for
    medium and high risk), writes code and tests, runs `make check`, opens a pull request.
-3. CI runs the quality gates, computes the risk level, labels the PR and runs the AI reviews that
-   the risk level requires. `/verify` walks the acceptance criteria and writes the evidence.
+3. CI runs the quality gates, computes the risk level and labels the PR. The developer runs the
+   AI reviews the risk level requires (`/review-code`, from medium `/review-security`, for high
+   `/review-architecture`) in the session; CI checks that their comments exist for the head
+   commit. `/verify` walks the acceptance criteria and writes the evidence.
 4. Low risk with green gates and no blocking findings merges automatically. Medium and high risk
    wait for a person (gate G2, and G3 for high).
 
@@ -80,8 +82,10 @@ cd /path/to/new-project
 # 5. set the GitHub side: harness/scripts/setup-repo.sh
 ```
 
-`setup-repo.sh` creates the labels, enables auto-merge on the repository, imports the branch ruleset
-and lists the secrets the workflows need (`ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`).
+`setup-repo.sh` creates the labels, enables auto-merge on the repository and imports the branch
+ruleset. No secret is needed: the review skills run in the session. Optional: `claude setup-token`
+and `gh secret set CLAUDE_CODE_OAUTH_TOKEN` let CI run the review skills itself (works with a
+Claude subscription); `AUTOMERGE_TOKEN` (a PAT) lets auto-merge work on Dependabot PRs.
 
 ## Updating a project to a newer harness
 
@@ -101,6 +105,7 @@ harness versions are listed in `harness/CHANGELOG.md` of the harness repository.
 | Agents do not edit `AGENTS.md`, `CLAUDE.md`, the policies, the risk matrix, the config | `permissions.deny` `Edit(...)` rules in `.claude/settings.json` |
 | Agents do not merge, approve, force-push or set labels | `permissions.deny` `Bash(...)` rules |
 | A change passes every gate | `make check` locally, `quality-gates.yml` as required checks |
+| Every PR has a code review without blocking findings | `review-code` check in `ai-review.yml` reads the comment of `/review-code` |
 | Medium and high risk need a person | `human-gate` job in `auto-merge.yml` as a required check |
 | Control files need a human review | `.github/CODEOWNERS` |
 

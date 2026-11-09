@@ -40,9 +40,12 @@ person. Low risk continues without a pause.
 Three independent sources of evidence:
 
 1. **Quality gates** in CI: `test`, `typecheck`, `lint`, `sast`, `deps`. All required.
-2. **AI reviews** in CI by risk level: `/review-code` always, `/review-security` from medium,
+2. **AI reviews** by risk level: `/review-code` always, `/review-security` from medium,
    `/review-architecture` from high or whenever `contracts/` or `docs/architecture/` changed. Each
-   writes one PR comment. `review-code` is a required check and fails on blocking findings.
+   runs in the developer's Claude Code session and writes one PR comment. CI (`ai-review.yml`)
+   checks that the comment for the head commit exists and reports no blocking findings;
+   `review-code` is a required check. With the secret `CLAUDE_CODE_OAUTH_TOKEN` (from
+   `claude setup-token`, works with a Claude subscription) CI runs the skills itself.
 3. **`/verify <PR>`**: walks the acceptance criteria of the spec, runs the affected tests, walks the
    application when a criterion names a screen, writes a table (erfüllt / nicht erfüllt / nicht
    prüfbar) as a PR comment and sets the spec row to `fertig` or `in Arbeit`.

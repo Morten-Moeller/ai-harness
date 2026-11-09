@@ -14,8 +14,10 @@ merges it as soon as every required check is green. No agent runs `gh pr merge`.
 4. **No label `needs-human`** on the PR, and the PR is not a draft.
 5. **Every required check green**: `gates (test|typecheck|lint|sast|deps)`, `risk`, `review-code`,
    `human-gate`. GitHub enforces this part; the job only enables auto-merge.
-6. **`review-code` without blocking findings.** The job fails on blocking findings, so this is part
-   of condition 5.
+6. **`review-code` without blocking findings.** The job reads the `Code-Review` comment for the
+   head commit and fails when it is missing or reports blocking findings, so this is part of
+   condition 5. The review runs in a Claude Code session (`/review-code <PR>`) or, with a token
+   secret, in CI.
 
 ## Never automatically
 

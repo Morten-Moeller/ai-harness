@@ -1,6 +1,6 @@
 ---
 name: review-security
-description: Security review of a pull request - built-in security-review skill or the security-reviewer agent, plus an OWASP checklist, a secret scan of the diff and a check of new or changed dependencies - written as a PR comment that starts with "Security-Review". Runs in CI from medium risk and on explicit request (/review-security <PR>).
+description: Security review of a pull request - built-in security-review skill or the security-reviewer agent, plus an OWASP checklist, a secret scan of the diff and a check of new or changed dependencies - written as a PR comment that starts with "Security-Review". Run in the session on explicit request (/review-security <PR>); CI checks the comment from medium risk and runs the skill itself only when a token secret is set.
 when_to_use: Load when the user runs /review-security, or when CI calls it with a PR number. Do not start it on your own.
 argument-hint: <PR number>
 disable-model-invocation: true
@@ -52,6 +52,13 @@ Ergebnis: <keine blockierenden Befunde | n blockierende Befunde>
 Checkliste: Injection <ok/..>, AuthZ <..>, Secrets <..>, Krypto <..>, Daten <..>, Abhängigkeiten <..>, Frontend <..>, Konfiguration <..>
 ```
 
-## 4. Summary
+## 4. CI check
+
+The job `review-security` in `ai-review.yml` checks for this comment. When the PR already had a run for
+this commit, rerun its failed jobs so the check turns green:
+`gh run list --workflow ai-review.yml --commit <head SHA> --json databaseId --jq '.[0].databaseId'`,
+then `gh run rerun <id> --failed`. No run yet: nothing to do; the next run finds the comment.
+
+## 5. Summary
 
 PR, blocking and non-blocking counts, the comment URL.

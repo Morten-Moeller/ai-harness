@@ -1,6 +1,6 @@
 ---
 name: review-architecture
-description: Architecture review of a pull request against docs/architecture, the ADRs and project-rules - module boundaries, dependency direction, deviations without an ADR, missing ADRs per harness/policies/adr.md, contract changes without a spec section - written as a PR comment that starts with "Architektur-Review". Runs in CI for high risk or contract changes and on explicit request (/review-architecture <PR>).
+description: Architecture review of a pull request against docs/architecture, the ADRs and project-rules - module boundaries, dependency direction, deviations without an ADR, missing ADRs per harness/policies/adr.md, contract changes without a spec section - written as a PR comment that starts with "Architektur-Review". Run in the session on explicit request (/review-architecture <PR>); CI checks the comment for high risk or contract changes and runs the skill itself only when a token secret is set.
 when_to_use: Load when the user runs /review-architecture, or when CI calls it with a PR number. Do not start it on your own.
 argument-hint: <PR number>
 disable-model-invocation: true
@@ -48,6 +48,13 @@ Ergebnis: <keine blockierenden Befunde | n blockierende Befunde>
 ADR: <vorhanden NNNN | nicht nötig, weil ... | FEHLT: Bedingung n>
 ```
 
-## 4. Summary
+## 4. CI check
+
+The job `review-architecture` in `ai-review.yml` checks for this comment. When the PR already had a
+run for this commit, rerun its failed jobs so the check turns green:
+`gh run list --workflow ai-review.yml --commit <head SHA> --json databaseId --jq '.[0].databaseId'`
+and then `gh run rerun <id> --failed`. No run yet: nothing to do; the next run finds the comment.
+
+## 5. Summary
 
 PR, blocking and non-blocking counts, the ADR verdict, the comment URL.

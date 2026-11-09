@@ -1,6 +1,6 @@
 ---
 name: review-code
-description: Review the code of a pull request for correctness, security, data loss, spec compliance and the hard constraints of AGENTS.md, using the built-in code-review skill or the code-reviewer agent, and write the result as a PR comment that starts with "Code-Review". Runs in CI as a required check and on explicit request (/review-code <PR>).
+description: Review the code of a pull request for correctness, security, data loss, spec compliance and the hard constraints of AGENTS.md, using the built-in code-review skill or the code-reviewer agent, and write the result as a PR comment that starts with "Code-Review". Run in the session on explicit request (/review-code <PR>); CI checks the comment as a required check and runs the skill itself only when a token secret is set.
 when_to_use: Load when the user runs /review-code, or when CI calls it with a PR number. Do not start it on your own.
 argument-hint: <PR number>
 disable-model-invocation: true
@@ -8,8 +8,8 @@ disable-model-invocation: true
 
 # Code review
 
-The merge is never part of this skill. In CI the job that calls this skill fails when the comment
-reports blocking findings.
+The merge is never part of this skill. The CI job `review-code` fails when the comment for the
+head commit is missing or reports blocking findings.
 
 ## 1. Resolve
 
@@ -59,7 +59,14 @@ Nicht geprüft: <was außerhalb des Diffs lag oder nicht verifizierbar war, oder
 
 The first line and the `Ergebnis:` line are read by CI. Keep their form exactly.
 
-## 4. Summary
+## 4. CI check
 
-PR, blocking and non-blocking counts, the comment URL. Do not repeat the findings in the chat
-when the comment holds them.
+The job `review-code` in `ai-review.yml` checks for this comment. When the PR already had a run for
+this commit, rerun its failed jobs so the check turns green:
+`gh run list --workflow ai-review.yml --commit <head SHA> --json databaseId --jq '.[0].databaseId'`,
+then `gh run rerun <id> --failed`. No run yet: nothing to do; the next run finds the comment.
+
+## 5. Summary
+
+PR, blocking and non-blocking counts, the comment URL, whether the CI run was rerun. Do not
+repeat the findings in the chat when the comment holds them.

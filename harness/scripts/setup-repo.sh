@@ -52,9 +52,11 @@ fi
 
 cat <<MSG
 
-Secrets the workflows need (set with gh secret set <NAME> --repo $REPO):
-  ANTHROPIC_API_KEY        or CLAUDE_CODE_OAUTH_TOKEN   for ai-review.yml
-  AUTOMERGE_TOKEN          optional PAT so auto-merge works on Dependabot PRs (GITHUB_TOKEN is read-only there)
+Optional secrets (gh secret set <NAME> --repo $REPO):
+  CLAUDE_CODE_OAUTH_TOKEN  from 'claude setup-token' (Claude subscription) so CI runs the review skills itself;
+                           without it the skills run in your session and CI only checks their comments
+  ANTHROPIC_API_KEY        alternative to the OAuth token
+  AUTOMERGE_TOKEN          PAT so auto-merge works on Dependabot PRs (GITHUB_TOKEN is read-only there)
 
 The required status checks in the ruleset appear in GitHub after the first workflow run.
 MSG
