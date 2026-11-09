@@ -67,8 +67,8 @@ step 4.
 **Combined run**: two or more reviews in state `voll` or `inkrementell`, and the reviewed diff has
 at most `review_combined_max_lines` changed lines (`harness/config.yml`). The reviewed diff is
 `diff.patch` for `voll` and `delta-<type>.patch` for `inkrementell`; count the lines that start
-with `+` or `-`, without the `+++` and `---` headers, and take the largest of the reviews that run. One Agent call with subagent type
-`code-reviewer` covers all of them, one section per review.
+with `+` or `-`, without the `+++` and `---` headers, and take the largest of the reviews that run.
+One Agent call with subagent type `code-reviewer` covers all of them, one section per review.
 
 **Separate runs** otherwise: one Agent call per review, all in the same message.
 
