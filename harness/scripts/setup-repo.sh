@@ -34,6 +34,7 @@ run gh label create "risk:low"    --repo "$REPO" --color 0E8A16 --description "R
 run gh label create "risk:medium" --repo "$REPO" --color FBCA04 --description "Risk level medium (harness/policies/risk.md)" --force
 run gh label create "risk:high"   --repo "$REPO" --color B60205 --description "Risk level high (harness/policies/risk.md)"   --force
 run gh label create "needs-human" --repo "$REPO" --color 5319E7 --description "Blocks auto-merge; a person decides"         --force
+run gh label create "human-approved" --repo "$REPO" --color 0052CC --description "G2: a person reviewed this PR (harness/policies/human-approval.md)" --force
 
 echo "repository settings"
 run gh repo edit "$REPO" --enable-auto-merge --enable-squash-merge --delete-branch-on-merge

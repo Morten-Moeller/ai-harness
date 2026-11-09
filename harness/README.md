@@ -106,7 +106,7 @@ harness versions are listed in `harness/CHANGELOG.md` of the harness repository.
 | Agents do not merge, approve, force-push or set labels | `permissions.deny` `Bash(...)` rules |
 | A change passes every gate | `make check` locally, `quality-gates.yml` as required checks |
 | Every PR has a code review without blocking findings | `review-code` check in `ai-review.yml` reads the comment of `/review-code` |
-| Medium and high risk need a person | `human-gate` job in `auto-merge.yml` as a required check |
+| Medium and high risk need a person | `human-gate` job in `auto-merge.yml` as a required check: label `human-approved` or an approving review |
 | Control files need a human review | `.github/CODEOWNERS` |
 
 Known gap: the `Edit(...)` rules cover the file-editing tools. A shell command such as `sed -i` or a

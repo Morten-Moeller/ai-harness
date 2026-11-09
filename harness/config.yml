@@ -26,5 +26,13 @@ auto_merge_allowlist:
   - "dependabot[bot]"
   - "Morten-Moeller"
 
+# Human gate G2 for medium and high risk (harness/policies/human-approval.md). The person who
+# directs the work reads the PR and sets this label. Empty disables the label; then only an
+# approving review by another person passes the gate.
+human_approval_label: human-approved
+
+# Require an approving review by a second person: "" (never), "high", or "medium" (medium and high).
+second_reviewer_for: ""
+
 # Models for the reviewer agents. "inherit" takes the session model.
 reviewer_model: inherit

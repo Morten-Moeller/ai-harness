@@ -50,8 +50,10 @@ Three independent sources of evidence:
    application when a criterion names a screen, writes a table (erfüllt / nicht erfüllt / nicht
    prüfbar) as a PR comment and sets the spec row to `fertig` or `in Arbeit`.
 
-**Gate G2, merge.** Medium and high risk need an approving review by a person. The `human-gate`
-check in `auto-merge.yml` passes only then. Low risk passes the gate without a review.
+**Gate G2, merge.** Medium and high risk need a review by a person: the director reads the PR
+and sets the label `human-approved`, or a second person approves (required when
+`second_reviewer_for` in `harness/config.yml` names the level). The `human-gate` check in
+`auto-merge.yml` passes only then. Low risk passes the gate without a review.
 
 **Gate G3, verification evidence.** High risk needs the `/verify` comment on the final commit
 before a person approves. The person reads the table, not the diff alone.
