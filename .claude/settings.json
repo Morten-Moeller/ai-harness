@@ -20,7 +20,9 @@
       "Bash(./harness/scripts/risk-level.sh*)",
       "Bash(gh run list*)",
       "Bash(gh run view*)",
-      "Bash(gh run rerun*)"
+      "Bash(gh run rerun*)",
+      "Bash(harness/scripts/review-rules.sh*)",
+      "Bash(./harness/scripts/review-rules.sh*)"
     ],
     "deny": [
       "Bash(gh pr merge*)",
@@ -35,7 +37,10 @@
       "Edit(./AGENTS.md)",
       "Edit(./CLAUDE.md)",
       "Edit(./.github/workflows/auto-merge.yml)",
-      "Edit(./.claude/settings.json)"
+      "Edit(./.claude/settings.json)",
+      "Bash(gh api *labels*)",
+      "Bash(gh issue edit*)",
+      "Bash(gh api graphql*)"
     ]
   },
   "hooks": {

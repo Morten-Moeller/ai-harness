@@ -1,7 +1,7 @@
 # Project rules
 
 Stack-specific rules that every change follows. `/implement` reads the file for the area it
-touches; `/review-architecture` and `/review-code` check against them. A rule that cannot be
+touches; `/review` checks against them. A rule that cannot be
 followed needs an ADR (`harness/policies/adr.md`).
 
 | File | Covers |

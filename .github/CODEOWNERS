@@ -1,4 +1,5 @@
-# Control files need a review by a person (ruleset: require_code_owner_review).
+# CODEOWNERS requests a person as reviewer for the control files. The merge gate is human-gate
+# (harness/policies/human-approval.md); second_reviewer_for in harness/config.yml makes the review mandatory.
 AGENTS.md                        @Morten-Moeller
 CLAUDE.md                        @Morten-Moeller
 /harness/                        @Morten-Moeller

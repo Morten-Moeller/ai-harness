@@ -1,10 +1,14 @@
 name: Merge policy
 
 # Two jobs, both required by harness/github/ruleset.json:
-#   human-gate   passes for low risk at once; for medium and high only with an approving review.
+#   human-gate   passes for low risk at once; for medium and high when a person set the label
+#                human-approved after the last push, or another person approved the head commit.
+#                Logic: harness/scripts/human-gate.sh, decision 0006.
 #   auto-merge   enables GitHub auto-merge when every condition of harness/policies/auto-merge.md
 #                holds, and disables it otherwise. GitHub merges when all required checks pass.
-# Policy: harness/policies/auto-merge.md, decision: harness/decisions/0004.
+# Configuration, risk matrix and scripts come from the base branch, so a pull request cannot change
+# the rules it is judged by. A file that does not exist on the base branch yet is taken from the
+# pull request.
 # Agents must not edit this file (.claude/settings.json deny rule, CODEOWNERS).
 
 on:
@@ -14,7 +18,9 @@ on:
     types: [submitted, dismissed]
 
 permissions:
+  actions: read
   contents: write
+  issues: read
   pull-requests: write
 
 concurrency:
@@ -39,34 +45,46 @@ jobs:
         if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
 
+      - name: Rules from the base branch
+        env:
+          BASE: origin/${{ github.event.pull_request.base.ref }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/base"
+          for f in harness/config.yml harness/risk-matrix.yml harness/scripts/risk-level.sh harness/scripts/human-gate.sh; do
+            if git cat-file -e "$BASE:$f" 2>/dev/null; then
+              git show "$BASE:$f" > "$RUNNER_TEMP/base/${f##*/}"
+            else
+              echo "$f does not exist on $BASE; using the copy of the pull request."
+              cp "$f" "$RUNNER_TEMP/base/${f##*/}"
+            fi
+          done
+          git diff --name-only "$BASE...HEAD" > "$RUNNER_TEMP/files.txt"
+          git diff "$BASE...HEAD" > "$RUNNER_TEMP/diff.patch"
+
       - name: Compute the level
         id: level
         env:
-          BASE: origin/${{ github.event.pull_request.base.ref }}
           UPDATE_TYPE: ${{ steps.dependabot.outputs.update-type }}
         run: |
-          args=(--base "$BASE")
+          args=(--files-from "$RUNNER_TEMP/files.txt" --diff-from "$RUNNER_TEMP/diff.patch"
+                --matrix "$RUNNER_TEMP/base/risk-matrix.yml" --config "$RUNNER_TEMP/base/config.yml")
           if [ -n "$UPDATE_TYPE" ]; then args+=(--dependabot "$UPDATE_TYPE"); fi
-          json=$(harness/scripts/risk-level.sh "${args[@]}" --format json)
+          json=$(bash "$RUNNER_TEMP/base/risk-level.sh" "${args[@]}" --format json)
           echo "level=$(printf '%s' "$json" | jq -r .level)" >> "$GITHUB_OUTPUT"
           echo "docs_only=$(printf '%s' "$json" | jq -r .docs_only)" >> "$GITHUB_OUTPUT"
-          harness/scripts/risk-level.sh "${args[@]}" --format text
+          bash "$RUNNER_TEMP/base/risk-level.sh" "${args[@]}" --format text
 
       - name: Gate
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
           LEVEL: ${{ steps.level.outputs.level }}
         run: |
-          if [ "$LEVEL" = low ]; then
-            echo "Risk low: no human review required (G2 does not apply)."; exit 0
-          fi
-          decision=$(gh pr view "$PR" --json reviewDecision --jq '.reviewDecision // ""')
-          if [ "$decision" = APPROVED ]; then
-            echo "Risk $LEVEL: approving review present."; exit 0
-          fi
-          echo "Risk $LEVEL: an approving review by a person is required (harness/policies/human-approval.md, G2). reviewDecision=$decision"
-          exit 1
+          bash "$RUNNER_TEMP/base/human-gate.sh" --level "$LEVEL" --pr "$PR" --sha "$SHA" \
+            --author "$AUTHOR" --repo "$REPO" --config "$RUNNER_TEMP/base/config.yml" --remove-stale
 
   auto-merge:
     name: auto-merge
@@ -76,6 +94,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Decide
@@ -89,12 +108,14 @@ jobs:
           BASE: ${{ github.event.pull_request.base.ref }}
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: |
+          git show "origin/$BASE:harness/config.yml" > "$RUNNER_TEMP/config.yml"
+          config="$RUNNER_TEMP/config.yml"
           reason=""
-          enabled=$(awk '$1 == "auto_merge_enabled:" { print $2; exit }' harness/config.yml)
-          default_branch=$(awk '$1 == "default_branch:" { print $2; exit }' harness/config.yml)
-          allow=$(awk '/^auto_merge_allowlist:/ { f=1; next } f && /^[ \t]*-/ { s=$0; sub(/^[ \t]*-[ \t]*/, "", s); gsub(/"/, "", s); print s; next } f && !/^[ \t]*-/ { f=0 }' harness/config.yml)
+          enabled=$(awk '$1 == "auto_merge_enabled:" { print $2; exit }' "$config")
+          default_branch=$(awk '$1 == "default_branch:" { print $2; exit }' "$config")
+          allow=$(awk '/^auto_merge_allowlist:/ { f=1; next } f && /^[ \t]*-/ { s=$0; sub(/^[ \t]*-[ \t]*/, "", s); gsub(/"/, "", s); print s; next } f && !/^[ \t]*-/ { f=0 }' "$config")
           [ "$enabled" = "true" ] || reason="auto_merge_enabled is not true"
-          [ -n "$reason" ] || [ "$LEVEL" = "low" ] || reason="risk level is $LEVEL"
+          [ -n "$reason" ] || [ "$LEVEL" = "low" ] || reason="risk level is ${LEVEL:-unknown}"
           [ -n "$reason" ] || [ "$DRAFT" != "true" ] || reason="draft"
           [ -n "$reason" ] || [ "$BASE" = "$default_branch" ] || reason="base is $BASE, not $default_branch"
           case ",$LABELS," in *,needs-human,*) [ -n "$reason" ] || reason="label needs-human" ;; esac

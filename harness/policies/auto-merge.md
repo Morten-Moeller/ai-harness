@@ -11,13 +11,15 @@ merges it as soon as every required check is green. No agent runs `gh pr merge`.
    documentation only (every file matches a `low` pattern under `docs/` or `*.md`).
 3. **Dependabot** PRs: update type `version-update:semver-patch` or `version-update:semver-minor`
    from `dependabot/fetch-metadata`, and no file outside the manifests and lock files.
-4. **No label `needs-human`** on the PR, and the PR is not a draft.
+4. **No label `needs-human`** on the PR, and the PR is not a draft. CI sets `needs-human` when
+   the rule check finds a changed gate.
 5. **Every required check green**: `gates (test|typecheck|lint|sast|deps)`, `risk`, `review-code`,
    `human-gate`. GitHub enforces this part; the job only enables auto-merge.
-6. **`review-code` without blocking findings.** The job reads the `Code-Review` comment for the
-   head commit and fails when it is missing or reports blocking findings, so this is part of
-   condition 5. The review runs in a Claude Code session (`/review-code <PR>`) or, with a token
-   secret, in CI.
+6. **`review-code` without blocking findings.** The job runs the rule check
+   (`harness/scripts/review-rules.sh`) and reads the `Code-Review` comment for the head commit. It
+   fails on blocking rule findings, on a missing comment and on blocking findings in the comment,
+   so this is part of condition 5. The review runs in a Claude Code session (`/review <PR>`) or,
+   with a token secret, in CI.
 
 ## Never automatically
 

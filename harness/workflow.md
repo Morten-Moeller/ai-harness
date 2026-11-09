@@ -40,18 +40,24 @@ person. Low risk continues without a pause.
 Three independent sources of evidence:
 
 1. **Quality gates** in CI: `test`, `typecheck`, `lint`, `sast`, `deps`. All required.
-2. **AI reviews** by risk level: `/review-code` always, `/review-security` from medium,
-   `/review-architecture` from high or whenever `contracts/` or `docs/architecture/` changed. Each
-   runs in the developer's Claude Code session and writes one PR comment. CI (`ai-review.yml`)
-   checks that the comment for the head commit exists and reports no blocking findings;
-   `review-code` is a required check. With the secret `CLAUDE_CODE_OAUTH_TOKEN` (from
-   `claude setup-token`, works with a Claude subscription) CI runs the skills itself.
+2. **Reviews**: `/review <PR>` in the developer's Claude Code session. A script checks the rules
+   that need no judgement (`harness/scripts/review-rules.sh`). Then reviewer agents run the AI
+   reviews the level needs: code always, security from medium, architecture for high or whenever
+   `contracts/` or `docs/architecture/` changed. A second run reviews only what changed since the
+   last reviewed commit. Each review writes one PR comment. Details: `harness/review.md`. CI
+   (`ai-review.yml`) runs the rule check again and checks that the comments for the head commit
+   exist and report no blocking findings; `review-code` is a required check. With the secret
+   `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`, works with a Claude subscription) CI runs
+   `/review` itself.
 3. **`/verify <PR>`**: walks the acceptance criteria of the spec, runs the affected tests, walks the
    application when a criterion names a screen, writes a table (erfüllt / nicht erfüllt / nicht
    prüfbar) as a PR comment and sets the spec row to `fertig` or `in Arbeit`.
 
-**Gate G2, merge.** Medium and high risk need an approving review by a person. The `human-gate`
-check in `auto-merge.yml` passes only then. Low risk passes the gate without a review.
+**Gate G2, merge.** Medium and high risk need a review by a person: the director reads the PR
+and sets the label `human-approved` after the last push, or a second person approves the head
+commit (required when
+`second_reviewer_for` in `harness/config.yml` names the level). The `human-gate` check in
+`auto-merge.yml` passes only then. Low risk passes the gate without a review.
 
 **Gate G3, verification evidence.** High risk needs the `/verify` comment on the final commit
 before a person approves. The person reads the table, not the diff alone.

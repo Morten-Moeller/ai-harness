@@ -16,7 +16,7 @@ AI Development Harness
 ├── Skills / Agents           .claude/skills/, .claude/agents/
 │   ├── /spec  /adr  /domain  /contract
 │   ├── /risk  /implement  /verify
-│   └── /review-code  /review-security  /review-architecture
+│   └── /review  rule check + code, security, architecture review by level   harness/review.md
 │
 ├── Quality Gates             harness/quality-gates.md, Makefile, .github/workflows/quality-gates.yml
 │   ├── test  typecheck  lint
@@ -47,10 +47,11 @@ Project Context
    (gate G0).
 2. `/implement` reads the spec, runs the risk assessment, checks the ADR policy, plans (gate G1 for
    medium and high risk), writes code and tests, runs `make check`, opens a pull request.
-3. CI runs the quality gates, computes the risk level and labels the PR. The developer runs the
-   AI reviews the risk level requires (`/review-code`, from medium `/review-security`, for high
-   `/review-architecture`) in the session; CI checks that their comments exist for the head
-   commit. `/verify` walks the acceptance criteria and writes the evidence.
+3. CI runs the quality gates, computes the risk level and labels the PR. The developer runs
+   `/review <PR>` in the session: a rule script first, then reviewer agents for the reviews the
+   level requires (code, from medium security, for high architecture), incremental after the first
+   run. CI checks the rules again and that the comments exist for the head commit. `/verify` walks
+   the acceptance criteria and writes the evidence.
 4. Low risk with green gates and no blocking findings merges automatically. Medium and high risk
    wait for a person (gate G2, and G3 for high).
 
@@ -103,15 +104,23 @@ harness versions are listed in `harness/CHANGELOG.md` of the harness repository.
 | Rule | Enforced by |
 |---|---|
 | Agents do not edit `AGENTS.md`, `CLAUDE.md`, the policies, the risk matrix, the config | `permissions.deny` `Edit(...)` rules in `.claude/settings.json` |
-| Agents do not merge, approve, force-push or set labels | `permissions.deny` `Bash(...)` rules |
+| Agents do not merge, approve, force-push or set labels | `permissions.deny` `Bash(...)` rules, including `gh api *labels*` |
 | A change passes every gate | `make check` locally, `quality-gates.yml` as required checks |
-| Every PR has a code review without blocking findings | `review-code` check in `ai-review.yml` reads the comment of `/review-code` |
-| Medium and high risk need a person | `human-gate` job in `auto-merge.yml` as a required check |
+| Every PR passes the rule check and has a code review without blocking findings | `review-code` check in `ai-review.yml`: `review-rules.sh` and the comment of `/review` |
+| Medium and high risk need a person | `human-gate` job in `auto-merge.yml` as a required check: label `human-approved` or an approving review |
 | Control files need a human review | `.github/CODEOWNERS` |
 
 Known gap: the `Edit(...)` rules cover the file-editing tools. A shell command such as `sed -i` or a
 redirect can still write a protected file. CODEOWNERS and the branch ruleset are the second line.
 Report an agent that uses the shell to change a control file; it is a policy violation.
+
+## The harness repository itself
+
+The harness repository has no specs of its own, because `docs/` is the template for projects. A
+decision record in `harness/decisions/` takes the place of the spec and the ADR; the rule check
+accepts it. Its `.claude/settings.json` allows agents to edit the policies, the risk matrix and
+the config, so the harness can be developed with agents; `AGENTS.md`, `CLAUDE.md`,
+`auto-merge.yml` and the settings stay denied.
 
 ## Language
 

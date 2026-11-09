@@ -7,7 +7,7 @@ Four gates. Each one is a point where an agent stops and a person decides. The r
 |---|---|---|---|---|
 | **G0 spec approval** | the spec describes the right change | required | required | required |
 | **G1 plan approval** | the implementation plan is the right way | – | required | required |
-| **G2 merge approval** | an approving PR review by a person | – | required | required |
+| **G2 merge approval** | a person reviewed the head commit: the label `human-approved` after the last push, or an approving review by another person | – | required | required |
 | **G3 verification evidence** | the `/verify` table on the final commit, read by the approver | – | – | required |
 
 ## How each gate is recorded
@@ -16,13 +16,35 @@ Four gates. Each one is a point where an agent stops and a person decides. The r
   `docs/specs/README.md`. The commit that does this is by a person. Agents never write `approved`.
 - **G1**: the person answers the plan in the session. `/implement` continues only after a yes.
   The plan is kept in the PR body under `## Plan`.
-- **G2**: an approving review on the PR. The `human-gate` job in `auto-merge.yml` checks
-  `reviewDecision == APPROVED` for medium and high and is a required check.
+- **G2**: the label named in `harness/config.yml` (`human_approval_label`, default
+  `human-approved`), set by a person after the push of the head commit, or an approving review of
+  the head commit by a person other than the author with write access (owner, member or
+  collaborator). The `human-gate` job in `auto-merge.yml` is a
+  required check; it runs `harness/scripts/human-gate.sh` with the configuration of the base
+  branch. A push makes the label stale; set it again after reading the new commits.
 - **G3**: the `/verify` comment names the head commit SHA. The approver confirms the SHA matches.
+
+## Who reviews
+
+The person who directs the agents is the reviewer. They write or approve the spec, approve the
+plan, read the pull request and set the label. GitHub does not let the author of a PR approve it,
+and the director is the author of every PR their agents open, so the label is the normal way to
+record G2. The deny rules in `.claude/settings.json` keep agents away from `gh label`,
+`gh pr edit`, `gh issue edit`, `gh api *labels*` and `gh api graphql`; CI never sets the label.
+
+A second person reviews in two cases:
+
+1. `second_reviewer_for` in `harness/config.yml` names the level (`high`, or `medium` for medium
+   and high). Then only an approving review passes the gate; the label alone does not. Any other
+   value than `""`, `high` or `medium` fails the gate.
+2. The director decides it for one PR: they request a review and leave the label off.
+
+A project with a team sets `second_reviewer_for: high` at least. A project with one person keeps
+it empty.
 
 ## Always a person, regardless of level
 
-- Merging a medium or high risk PR.
+- Merging a medium or high risk PR, and setting the label `human-approved` on one.
 - Setting a spec to `approved`.
 - Changing `AGENTS.md`, `CLAUDE.md`, `harness/policies/`, `harness/risk-matrix.yml`,
   `harness/config.yml`, `.github/workflows/`. These paths are denied for agent edits and listed

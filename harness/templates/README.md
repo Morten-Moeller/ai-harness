@@ -11,7 +11,7 @@ This repository uses the AI Development Harness. Start with `AGENTS.md` and `har
 | propose a change | `/spec <topic>` in Claude Code, then a person approves the spec |
 | implement an approved spec | `/implement <spec-id>` |
 | record a decision | `/adr <title>` |
-| check a pull request | `/verify <PR>`, `/review-code <PR>` |
+| check a pull request | `/review <PR>`, `/verify <PR>` |
 | run every quality gate | `make check` |
 
 ## Setup
