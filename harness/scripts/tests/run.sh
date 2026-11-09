@@ -241,6 +241,9 @@ RR_BODY=$'| A1 | t |\n| A2 | t |\nGate-Änderung: upstream outage, ticket 12'
 check "rules: switched-off test with reason does not block" "nein" "$(rule_rows "$(rr)" gate)"
 check "rules: gate change asks for a person" "true" "$("$RR/harness/scripts/review-rules.sh" --files-from "$TMP/rr.files" --diff-from "$TMP/rr.diff" --body-from "$TMP/rr.body" --title "$RR_TITLE" --base-ref main --format json 2>/dev/null | jq -r .needs_human)"
 rrgit checkout -q main -- src/a.ts
+printf '  - %s\n' "'eslint-disable'" >> "$RR/harness/risk-matrix.yml"
+check "rules: the pattern list in the risk matrix is no switched-off check" "" "$(rule_rows "$(rr)" gate)"
+rrgit checkout -q main -- harness/risk-matrix.yml
 RR_BODY=$'| A1 | t |\n| A2 | t |'
 printf 'openapi: 3.1.0\n' > "$RR/contracts/api.yaml"
 out=$(rr)

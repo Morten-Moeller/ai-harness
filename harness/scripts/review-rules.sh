@@ -123,7 +123,7 @@ awk '
 ' "$TMP/diff" > "$TMP/lines"
 
 awk -F'\t' '$1 == "+" { print $2 "\t" $3 "\t" $4 }' "$TMP/lines" \
-  | grep -vE '^(docs/[^	]*|[^	]*\.md|harness/scripts/review-rules\.sh|harness/scripts/tests/[^	]*)	' > "$TMP/added.code" || true
+  | grep -vE '^(docs/[^	]*|[^	]*\.md|harness/risk-matrix\.yml|harness/scripts/review-rules\.sh|harness/scripts/tests/[^	]*)	' > "$TMP/added.code" || true
 
 : > "$TMP/findings"
 add() { printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" >> "$TMP/findings"; }
