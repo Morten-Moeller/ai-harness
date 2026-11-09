@@ -53,10 +53,12 @@ cfg_value() {
 }
 
 yaml_list() {
-  awk -v key="$2" '
+  awk -v key="$2" -v q="'" '
     /^[A-Za-z_]+:/ { cur=$1; sub(/:$/, "", cur); next }
     cur == key && /^[ \t]*-[ \t]*/ {
-      s=$0; sub(/^[ \t]*-[ \t]*/, "", s); sub(/^"/, "", s); sub(/"[ \t]*$/, "", s)
+      s=$0; sub(/^[ \t]*-[ \t]*/, "", s); sub(/[ \t]+$/, "", s)
+      f = substr(s, 1, 1); l = substr(s, length(s), 1)
+      if (length(s) > 1 && f == l && (f == "\"" || f == q)) s = substr(s, 2, length(s) - 2)
       if (s != "") print s
     }
   ' "$1"
@@ -86,6 +88,7 @@ compile_list() {
 }
 for lvl in high medium low dependency_manifests; do compile_list "$lvl"; done
 yaml_list "$MATRIX" keywords | tr '[:upper:]' '[:lower:]' > "$TMP/keywords"
+GATE_RE=$(yaml_list "$MATRIX" gate_markers | awk 'NF { printf "%s(%s)", (n++ ? "|" : ""), $0 }')
 
 match_list() {
   local f="$1" list="$2" re pat
@@ -189,6 +192,18 @@ if [ -s "$TMP/diff" ] && [ -s "$TMP/keywords" ]; then
     before=$overall
     overall=$(raise "$overall")
     printf 'keywords: %s added lines match (%s), %s raised to %s\n' "$hits" "$words" "$before" "$overall" >> "$TMP/escalators"
+  fi
+fi
+
+if [ "$overall" = low ] && [ -n "$GATE_RE" ] && [ -s "$TMP/diff" ]; then
+  awk '
+    /^\+\+\+ / { f=$2; sub(/^b\//, "", f); next }
+    /^\+/ && !/^\+\+\+/ { print f "\t" substr($0, 2) }
+  ' "$TMP/diff" | awk -F'\t' '$1 !~ /\.md$/ && $1 !~ /^docs\//' > "$TMP/added.gate"
+  gate_hits=$(GATE_RE="$GATE_RE" awk -F'\t' '{ t = $0; sub(/^[^\t]*\t/, "", t); if (t ~ ENVIRON["GATE_RE"]) c++ } END { print c + 0 }' "$TMP/added.gate")
+  if [ "$gate_hits" -gt 0 ]; then
+    overall=medium
+    printf 'gate markers: %s added lines switch off a check, low raised to medium\n' "$gate_hits" >> "$TMP/escalators"
   fi
 fi
 

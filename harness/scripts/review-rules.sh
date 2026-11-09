@@ -6,7 +6,7 @@
 #   review-rules.sh --pr <number> [--root <dir>] [--format markdown|tsv|json]
 #   review-rules.sh --files-from <file> --diff-from <file> [--body-from <file>] [--title <text>]
 #                   [--author <login>] [--base-ref <ref>] [--head-ref <ref>] [--level <level>]
-#                   [--format markdown|tsv|json]
+#                   [--matrix <file>] [--format markdown|tsv|json]
 #
 # --root names the checkout to read; CI runs the copy of this script from the base branch.
 # Exit 0: no blocking finding. Exit 1: blocking findings. Exit 2: usage error.
@@ -16,6 +16,7 @@ usage() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 PR=""
+MATRIX=""
 FILES_FROM=""
 DIFF_FROM=""
 BODY_FROM=""
@@ -39,6 +40,7 @@ while [ $# -gt 0 ]; do
     --base-ref) BASE_REF="$2"; shift 2 ;;
     --head-ref) HEAD_REF="$2"; shift 2 ;;
     --level) LEVEL="$2"; shift 2 ;;
+    --matrix) MATRIX="$2"; shift 2 ;;
     --format) FORMAT="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -46,6 +48,7 @@ while [ $# -gt 0 ]; do
 done
 case "$FORMAT" in markdown|tsv|json) ;; *) echo "unknown format: $FORMAT" >&2; exit 2 ;; esac
 CONFIG="$ROOT/harness/config.yml"
+MATRIX=${MATRIX:-$ROOT/harness/risk-matrix.yml}
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -187,7 +190,16 @@ fi
 gate_reason=$(grep -E '^Gate-Änderung:' "$TMP/body" | head -1 | sed 's/^Gate-Änderung:[[:space:]]*//' || true)
 case "$gate_reason" in "<"*) gate_reason="" ;; esac
 if enabled gate; then
-  GATE_RE='\.(skip|only)\(|(^|[^A-Za-z0-9_])x(it|describe|test)\(|@ts-(ignore|nocheck|expect-error)|eslint-disable|nolint|#[[:space:]]*noqa|#[[:space:]]*type:[[:space:]]*ignore|t\.Skip\(|\[Ignore|Skip[[:space:]]*=[[:space:]]*"|pytest\.mark\.(skip|xfail)|--no-verify|continue-on-error:[[:space:]]*true|SuppressMessage|#pragma[[:space:]]+warning[[:space:]]+disable|(istanbul|c8)[[:space:]]+ignore'
+  GATE_RE=$(awk -v q="'" '
+    /^[A-Za-z_]+:/ { cur=$1; sub(/:$/, "", cur); next }
+    cur == "gate_markers" && /^[ \t]*-[ \t]*/ {
+      s=$0; sub(/^[ \t]*-[ \t]*/, "", s); sub(/[ \t]+$/, "", s)
+      f = substr(s, 1, 1); l = substr(s, length(s), 1)
+      if (length(s) > 1 && f == l && (f == "\"" || f == q)) s = substr(s, 2, length(s) - 2)
+      if (s != "") printf "%s(%s)", (n++ ? "|" : ""), s
+    }
+  ' "$MATRIX" 2>/dev/null || true)
+  [ -n "$GATE_RE" ] || GATE_RE='a^'
   b=ja
   [ -n "$gate_reason" ] && b=nein
   GATE_RE="$GATE_RE" awk -F'\t' '$3 ~ ENVIRON["GATE_RE"] { t=$3; sub(/^[ \t]+/, "", t); print $1 ":" $2 "\t" substr(t, 1, 80) }' "$TMP/added.code" \

@@ -18,7 +18,8 @@ Four gates. Each one is a point where an agent stops and a person decides. The r
   The plan is kept in the PR body under `## Plan`.
 - **G2**: the label named in `harness/config.yml` (`human_approval_label`, default
   `human-approved`), set by a person after the push of the head commit, or an approving review of
-  the head commit by a person other than the author. The `human-gate` job in `auto-merge.yml` is a
+  the head commit by a person other than the author with write access (owner, member or
+  collaborator). The `human-gate` job in `auto-merge.yml` is a
   required check; it runs `harness/scripts/human-gate.sh` with the configuration of the base
   branch. A push makes the label stale; set it again after reading the new commits.
 - **G3**: the `/verify` comment names the head commit SHA. The approver confirms the SHA matches.
@@ -29,7 +30,7 @@ The person who directs the agents is the reviewer. They write or approve the spe
 plan, read the pull request and set the label. GitHub does not let the author of a PR approve it,
 and the director is the author of every PR their agents open, so the label is the normal way to
 record G2. The deny rules in `.claude/settings.json` keep agents away from `gh label`,
-`gh pr edit` and `gh api *labels*`; CI never sets the label.
+`gh pr edit`, `gh issue edit`, `gh api *labels*` and `gh api graphql`; CI never sets the label.
 
 A second person reviews in two cases:
 

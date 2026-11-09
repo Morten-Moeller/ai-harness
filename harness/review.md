@@ -30,8 +30,10 @@ fails `review-code` even when the comment says otherwise.
 | `kriterium` | every acceptance criterion of the spec has a row with evidence in the PR body | yes |
 | `contract` | a change under `contracts/` is named in the `## Contracts` section of the spec | yes |
 
-Any `gate` finding sets the label `needs-human` in CI, so the PR never merges automatically
-(`harness/policies/auto-merge.md`). Dependabot PRs skip `spec` and `adr`. A project switches a
+The patterns for switched-off checks are the list `gate_markers` in `harness/risk-matrix.yml`.
+`risk-level.sh` reads the same list and raises a low-risk PR with such a line to medium, so it
+never merges automatically (`harness/policies/auto-merge.md`). CI also sets the label
+`needs-human` on any `gate` finding. Dependabot PRs skip `spec` and `adr`. A project switches a
 rule off in `harness/config.yml` (`review_rules_disabled`).
 
 In the harness repository itself a decision record in `harness/decisions/` takes the place of the

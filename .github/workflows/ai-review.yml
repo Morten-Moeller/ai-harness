@@ -92,14 +92,26 @@ jobs:
           PR: ${{ needs.scope.outputs.pr }}
           BASE: origin/${{ github.base_ref }}
         run: |
-          script=harness/scripts/review-rules.sh
-          if git cat-file -e "$BASE:harness/scripts/review-rules.sh" 2>/dev/null; then
-            git show "$BASE:harness/scripts/review-rules.sh" > "$RUNNER_TEMP/review-rules.sh"
-            script="$RUNNER_TEMP/review-rules.sh"
-          fi
+          base_copy() {
+            if git cat-file -e "$BASE:$1" 2>/dev/null && { [ -z "$2" ] || git show "$BASE:$1" | grep -q "$2"; }; then
+              git show "$BASE:$1" > "$RUNNER_TEMP/${1##*/}"
+            else
+              echo "$1 from the pull request (not on $BASE yet)."
+              cp "$1" "$RUNNER_TEMP/${1##*/}"
+            fi
+          }
+          base_copy harness/scripts/review-rules.sh ""
+          base_copy harness/scripts/risk-level.sh ""
+          base_copy harness/risk-matrix.yml '^gate_markers:'
+          git diff --name-only "$BASE...HEAD" > "$RUNNER_TEMP/files.txt"
+          git diff "$BASE...HEAD" > "$RUNNER_TEMP/diff.patch"
+          level=$(bash "$RUNNER_TEMP/risk-level.sh" --files-from "$RUNNER_TEMP/files.txt" --diff-from "$RUNNER_TEMP/diff.patch" \
+            --matrix "$RUNNER_TEMP/risk-matrix.yml" --format level)
+          rules=(bash "$RUNNER_TEMP/review-rules.sh" --root "$GITHUB_WORKSPACE" --pr "$PR" --level "$level"
+                 --matrix "$RUNNER_TEMP/risk-matrix.yml")
           status=0
-          bash "$script" --root "$GITHUB_WORKSPACE" --pr "$PR" --format json > "$RUNNER_TEMP/rules.json" || status=$?
-          bash "$script" --root "$GITHUB_WORKSPACE" --pr "$PR" --format markdown >> "$GITHUB_STEP_SUMMARY" || true
+          "${rules[@]}" --format json > "$RUNNER_TEMP/rules.json" || status=$?
+          "${rules[@]}" --format markdown >> "$GITHUB_STEP_SUMMARY" || true
           if [ "$(jq -r .needs_human "$RUNNER_TEMP/rules.json")" = true ]; then
             gh pr edit "$PR" --add-label needs-human || echo "Could not set needs-human."
           fi

@@ -84,6 +84,25 @@ diff --git a/src/a.ts b/src/a.ts
 D
 check "keyword in a removed line does not raise" medium "$(level --files-from "$(files src/a.ts)" --diff-from "$TMP/diff-removed")"
 
+cat > "$TMP/diff-skip" <<'D'
+diff --git a/tests/a.test.ts b/tests/a.test.ts
+--- a/tests/a.test.ts
++++ b/tests/a.test.ts
+@@ -1 +1,2 @@
+ x
++it.skip("slow", () => {})
+D
+check "gate marker raises low to medium" medium "$(level --files-from "$(files tests/a.test.ts)" --diff-from "$TMP/diff-skip")"
+cat > "$TMP/diff-skip-doc" <<'D'
+diff --git a/docs/a.md b/docs/a.md
+--- a/docs/a.md
++++ b/docs/a.md
+@@ -1 +1,2 @@
+ x
++Never write it.skip( in a test.
+D
+check "gate marker in Markdown does not raise" low "$(level --files-from "$(files docs/a.md)" --diff-from "$TMP/diff-skip-doc")"
+
 # Lines counted from the diff
 check "lines are counted from the diff" "1" "$("$RISK" --files-from "$(files src/a.ts)" --diff-from "$TMP/diff-removed" --format json | sed 's/.*"lines":\([0-9]*\).*/\1/')"
 
@@ -134,12 +153,14 @@ SHA_A=1111111111111111111111111111111111111111
 SHA_B=2222222222222222222222222222222222222222
 gate_cfg() { printf 'human_approval_label: %s\nsecond_reviewer_for: %s\n' "$1" "$2" > "$TMP/gate.yml"; echo "$TMP/gate.yml"; }
 echo '[]' > "$TMP/no-reviews.json"
-printf '[{"commit_id":"%s","user":{"login":"reviewer"},"state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-a.json"
-printf '[{"commit_id":"%s","user":{"login":"reviewer"},"state":"APPROVED"}]\n' "$SHA_B" > "$TMP/approved-b.json"
-printf '[{"commit_id":"%s","user":{"login":"author"},"state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-self.json"
-printf '[{"commit_id":"%s","user":{"login":"reviewer"},"state":"APPROVED"},{"commit_id":"%s","user":{"login":"reviewer"},"state":"CHANGES_REQUESTED"}]\n' "$SHA_A" "$SHA_A" > "$TMP/approved-then-changes.json"
+printf '[{"commit_id":"%s","user":{"login":"reviewer","type":"User"},"author_association":"COLLABORATOR","state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-a.json"
+printf '[{"commit_id":"%s","user":{"login":"reviewer","type":"User"},"author_association":"COLLABORATOR","state":"APPROVED"}]\n' "$SHA_B" > "$TMP/approved-b.json"
+printf '[{"commit_id":"%s","user":{"login":"author","type":"User"},"author_association":"OWNER","state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-self.json"
+printf '[{"commit_id":"%s","user":{"login":"reviewer","type":"User"},"author_association":"COLLABORATOR","state":"APPROVED"},{"commit_id":"%s","user":{"login":"reviewer","type":"User"},"author_association":"COLLABORATOR","state":"CHANGES_REQUESTED"}]\n' "$SHA_A" "$SHA_A" > "$TMP/approved-then-changes.json"
 printf '[{"event":"labeled","label":{"name":"human-approved"},"actor":{"type":"User"},"created_at":"2026-11-09T12:00:00Z"}]\n' > "$TMP/label-user-noon.json"
 printf '[{"event":"labeled","label":{"name":"human-approved"},"actor":{"type":"Bot"},"created_at":"2026-11-09T12:00:00Z"}]\n' > "$TMP/label-bot-noon.json"
+printf '[{"commit_id":"%s","user":{"login":"stranger","type":"User"},"author_association":"NONE","state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-stranger.json"
+printf '[{"commit_id":"%s","user":{"login":"app","type":"Bot"},"author_association":"COLLABORATOR","state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-bot.json"
 gate() { "$HG" --pr 7 --sha "$SHA_A" --author author --events-json "$TMP/label-user-noon.json" --pushed-at 2026-11-09T11:00:00Z "$@" >/dev/null 2>&1 && echo pass || echo fail; }
 c=$(gate_cfg human-approved '""')
 check "gate: low passes without anything" pass "$(gate --level low --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
@@ -149,6 +170,8 @@ check "gate: label from before the push fails" fail "$(gate --level high --confi
 check "gate: label set by a bot fails" fail "$(gate --level medium --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --events-json "$TMP/label-bot-noon.json")"
 check "gate: approval by another person on the head commit passes" pass "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-a.json")"
 check "gate: approval on an older commit does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-b.json")"
+check "gate: approval by an account without write access does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-stranger.json")"
+check "gate: approval by a bot does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-bot.json")"
 check "gate: approval by the author does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-self.json")"
 check "gate: changes requested after approval does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-then-changes.json")"
 c=$(gate_cfg human-approved high)

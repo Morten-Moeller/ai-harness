@@ -42,7 +42,9 @@
       "Edit(./.github/workflows/auto-merge.yml)",
       "Edit(./.claude/settings.json)",
       "Bash(gh api *labels*)",
-      "Edit(./harness/scripts/human-gate.sh)"
+      "Edit(./harness/scripts/human-gate.sh)",
+      "Bash(gh issue edit*)",
+      "Bash(gh api graphql*)"
     ]
   },
   "hooks": {

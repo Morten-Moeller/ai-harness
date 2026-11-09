@@ -93,7 +93,8 @@ else
   gh api "repos/$REPO/pulls/$PR/reviews?per_page=100" > "$TMP/reviews.json"
 fi
 approvers=$(jq -r --arg sha "$SHA" --arg author "$AUTHOR" '
-  [.[] | select(.commit_id == $sha and .user.login != $author)
+  [.[] | select(.commit_id == $sha and .user.login != $author and .user.type == "User")
+       | select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR")
        | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")]
   | group_by(.user.login) | map(last | select(.state == "APPROVED") | .user.login) | join(", ")
 ' "$TMP/reviews.json")

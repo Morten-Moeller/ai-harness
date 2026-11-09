@@ -18,7 +18,9 @@ branch. A pull request cannot change the rules it is judged by.
 
 For medium and high risk the gate passes when one of these holds:
 
-1. A person other than the author approved the head commit (reviews API, `commit_id`).
+1. A person other than the author, with write access (`author_association` owner, member or
+   collaborator) and an account of type `User`, approved the head commit (reviews API,
+   `commit_id`).
 2. The label from `human_approval_label` (default `human-approved`) was set by an account of type
    `User` after the push of the head commit. The push time is the first workflow run for that
    commit. A label from before the push is stale; the job removes it.
@@ -37,8 +39,9 @@ read the PR. A second reviewer is a decision for a team or for one PR, not the d
 - One person can run the whole workflow, including medium and high risk, without a bypass in the
   ruleset. The quality gates stay enforced for everyone.
 - Every push needs a new label, just as it would dismiss an approval.
-- Agents are kept away from the label by deny rules for `gh label`, `gh pr edit` and
-  `gh api *labels*`. The deny rules run on the client; the `User` check only rules out apps.
+- Agents are kept away from the label by deny rules for `gh label`, `gh pr edit`,
+  `gh issue edit`, `gh api *labels*` and `gh api graphql`. The deny rules run on the client; the
+  `User` check only rules out apps.
 - In a team the label lets an author pass their own PR. `second_reviewer_for: high` closes that
   for high risk; `medium` for both levels.
 - Projects on 0.1.0 create the label, add the two keys to `harness/config.yml` and rerun

@@ -24,6 +24,7 @@ Escalators raise the level by one step. They never lower it.
 | dependency manifest | a change to a package manifest or lock file is at least medium, unless it is a Dependabot patch or minor update with no other files |
 | major version | a dependency major bump is at least medium and needs an ADR when the dependency is a framework |
 | keywords | added lines that match the `keywords` list in `harness/risk-matrix.yml` (for example `password`, `secret`, `DROP TABLE`) raise one step |
+| gate markers | added lines outside Markdown that switch off a check (`gate_markers` in `harness/risk-matrix.yml`, for example `.skip(`, `@ts-ignore`) raise low to medium |
 
 ## How the level is computed
 
