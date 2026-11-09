@@ -43,10 +43,10 @@ ruleset="$ROOT/harness/github/ruleset.json"
 name=$(jq -r .name "$ruleset")
 existing=$(gh api "repos/$REPO/rulesets" -q ".[] | select(.name == \"$name\") | .id" 2>/dev/null || true)
 if [ -n "$existing" ]; then
-  run gh api -X PUT "repos/$REPO/rulesets/$existing" --input "$ruleset" >/dev/null
+  run gh api -X PUT "repos/$REPO/rulesets/$existing" --input "$ruleset" --silent
   echo "ruleset '$name' updated (id $existing)"
 else
-  run gh api -X POST "repos/$REPO/rulesets" --input "$ruleset" >/dev/null
+  run gh api -X POST "repos/$REPO/rulesets" --input "$ruleset" --silent
   echo "ruleset '$name' created"
 fi
 

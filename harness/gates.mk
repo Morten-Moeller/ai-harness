@@ -13,7 +13,9 @@ sast: ## Static application security testing (semgrep) and secret scan (gitleaks
 
 deps: ## Known vulnerabilities in dependencies (osv-scanner over the lock files)
 	@command -v osv-scanner >/dev/null 2>&1 || { echo "make deps: osv-scanner not installed. https://google.github.io/osv-scanner/installation/"; exit 1; }
-	osv-scanner scan source --recursive .
+	@out=$$(osv-scanner scan source --recursive . 2>&1); code=$$?; printf '%s\n' "$$out"; \
+	if [ $$code -eq 128 ] && printf '%s' "$$out" | grep -q 'No package sources found'; then echo "make deps: no lock files in the repository, nothing to scan"; exit 0; fi; \
+	exit $$code
 
 help: ## List every target
 	@grep -hE '^[a-zA-Z0-9_:.-]+:.*## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
