@@ -24,12 +24,21 @@ The reviews of PR #4 found three things that 0006 and 0007 do not record:
    one into a temporary directory, where a shared helper would be missing. Option not taken: a
    shared `harness/scripts/lib/`, which would need a second copy step and a second place to keep in
    sync with the base branch.
-4. The rule check in `ai-review.yml` fails when a script or the matrix is missing on the base
-   branch, instead of taking the copy of the pull request.
+4. The rule check in `ai-review.yml` runs scripts only from the base branch. When the base has
+   no `review-rules.sh` yet, the check is skipped with a notice instead of running code of the
+   pull request; a base matrix without `gate_markers` is replaced by the matrix of the pull
+   request, which is data and not code. Option not taken: fail in both cases, because then the
+   update pull request of a project could never bring the files in.
+5. `auto-merge.yml` keeps its fallback to the copy of the pull request for `human-gate.sh`. Without
+   it the update pull request to 0.2 could never pass G2. In a project whose base has no
+   `human-gate.sh`, a pull request can change the workflow file itself as well (0006), so the
+   fallback opens no new way.
 
 ## Consequences
 
 - A switched-off check always needs a person, also in a low-risk PR.
 - A second reviewer needs real write permission; a reader of an organisation does not count.
+- The update pull request from 0.1 runs without rule check and with the gate script of the
+  pull request. A person reviews it by hand (`harness/CHANGELOG.md`).
 - A change to the config format touches every script that reads it. The tests in
   `harness/scripts/tests/run.sh` cover each reader.

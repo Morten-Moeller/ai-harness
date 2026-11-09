@@ -33,8 +33,9 @@ fails `review-code` even when the comment says otherwise.
 The patterns for switched-off checks are the list `gate_markers` in `harness/risk-matrix.yml`.
 `risk-level.sh` reads the same list and raises a low-risk PR with such a line to medium, so it
 never merges automatically (`harness/policies/auto-merge.md`). CI also sets the label
-`needs-human` on any `gate` finding and removes it again when a later run finds none and the label
-was set by CI. A `needs-human` set by a person stays.
+`needs-human` on any `gate` finding and removes it again when a later run finds none and the last
+`labeled` event of the label came from `github-actions[bot]`. To keep a label that CI set, remove
+it and set it again; then the last event is a person's.
 
 The scripts read the matrix and the config each with their own few lines of awk. They stay
 self-contained on purpose: CI copies single scripts from the base branch into a temporary

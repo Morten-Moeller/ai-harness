@@ -106,14 +106,15 @@ permission_of() {
   if [ "$PERMISSIONS_SET" = 1 ]; then
     printf '%s\n' "$PERMISSIONS" | tr ',' '\n' | awk -F= -v l="$1" '$1 == l { print $2; exit }'
   else
-    gh api "repos/$REPO/collaborators/$1/permission" --jq '.permission' 2>/dev/null || true
+    gh api "repos/$REPO/collaborators/$1/permission" --jq '.permission' 2>"$TMP/permission.err" \
+      || echo "Could not read the permission of $1: $(head -1 "$TMP/permission.err")" >&2
   fi
 }
 approvers=""
 for login in $candidates; do
   case "$(permission_of "$login")" in
     admin|maintain|write) approvers="${approvers:+$approvers, }$login" ;;
-    *) echo "Approval by $login on commit $short does not count: no write permission." ;;
+    *) echo "Approval by $login on commit $short does not count: no write permission found." ;;
   esac
 done
 [ -n "$approvers" ] && pass "Risk $LEVEL: approved on commit $short by $approvers (G2)."
