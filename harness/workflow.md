@@ -42,7 +42,8 @@ Three independent sources of evidence:
 1. **Quality gates** in CI: `test`, `typecheck`, `lint`, `sast`, `deps`. All required.
 2. **AI reviews** by risk level: `/review-code` always, `/review-security` from medium,
    `/review-architecture` from high or whenever `contracts/` or `docs/architecture/` changed. Each
-   runs in the developer's Claude Code session and writes one PR comment. CI (`ai-review.yml`)
+   runs in the developer's Claude Code session and writes one PR comment; `/review <PR>` starts
+   the ones the level needs in parallel and skips those already done for the commit. CI (`ai-review.yml`)
    checks that the comment for the head commit exists and reports no blocking findings;
    `review-code` is a required check. With the secret `CLAUDE_CODE_OAUTH_TOKEN` (from
    `claude setup-token`, works with a Claude subscription) CI runs the skills itself.

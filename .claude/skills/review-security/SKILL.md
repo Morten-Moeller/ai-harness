@@ -1,9 +1,9 @@
 ---
 name: review-security
 description: Security review of a pull request - built-in security-review skill or the security-reviewer agent, plus an OWASP checklist, a secret scan of the diff and a check of new or changed dependencies - written as a PR comment that starts with "Security-Review". Run in the session on explicit request (/review-security <PR>); CI checks the comment from medium risk and runs the skill itself only when a token secret is set.
-when_to_use: Load when the user runs /review-security, or when CI calls it with a PR number. Do not start it on your own.
-argument-hint: <PR number>
-disable-model-invocation: true
+when_to_use: Load only when the user runs /review-security or when the skill review invokes it with a PR number. Do not start it on your own.
+argument-hint: <PR number> [--no-rerun]
+context: fork
 ---
 
 # Security review
@@ -17,9 +17,11 @@ As in `review-code` step 1. An existing comment that starts with `Security-Revie
 
 ## 2. Review
 
-- The skill `security-review` is available: invoke it for the PR and take its findings.
-- Otherwise: run the agent `security-reviewer` with the diff path, the spec path and
-  `project-rules/backend.md` and `frontend.md`.
+- The Skill tool offers `security-review`: invoke it for the PR and take its findings.
+- Otherwise, the Agent tool is available: run the agent `security-reviewer` with the diff path,
+  the spec path and `project-rules/backend.md` and `frontend.md`.
+- Otherwise (forked run without those tools): do the review yourself by the rules in
+  `.claude/agents/security-reviewer.md`.
 
 Checklist in every case, each item answered with `ok`, `finding` or `n/a`:
 
@@ -53,6 +55,9 @@ Checkliste: Injection <ok/..>, AuthZ <..>, Secrets <..>, Krypto <..>, Daten <..>
 ```
 
 ## 4. CI check
+
+Skip this step when the arguments contain `--no-rerun`; the skill `review` reruns CI once for
+all reviews.
 
 The job `review-security` in `ai-review.yml` checks for this comment. When the PR already had a run for
 this commit, rerun its failed jobs so the check turns green:

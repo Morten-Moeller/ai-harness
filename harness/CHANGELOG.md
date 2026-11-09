@@ -10,6 +10,9 @@ Manual steps after `update.sh`:
   `human_approval_label: human-approved` and `second_reviewer_for: ""` to `harness/config.yml`.
   `human-gate` now passes for medium and high with the label or an approving review (decision
   0006). Without the label key the gate still requires an approving review.
+- New skill `/review <PR>`: runs the reviews the risk level needs in parallel and skips those
+  whose comment for the head commit exists. The three review skills now run forked and accept
+  `--no-rerun`. No manual step.
 - Set `cooldown.default-days: 7` in `.github/dependabot.yml`. The semgrep rule
   `dependabot-missing-cooldown` treats smaller values as missing and fails `make sast`.
 

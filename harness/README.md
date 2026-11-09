@@ -16,7 +16,7 @@ AI Development Harness
 ├── Skills / Agents           .claude/skills/, .claude/agents/
 │   ├── /spec  /adr  /domain  /contract
 │   ├── /risk  /implement  /verify
-│   └── /review-code  /review-security  /review-architecture
+│   └── /review  (= /review-code  /review-security  /review-architecture by level)
 │
 ├── Quality Gates             harness/quality-gates.md, Makefile, .github/workflows/quality-gates.yml
 │   ├── test  typecheck  lint
@@ -47,10 +47,11 @@ Project Context
    (gate G0).
 2. `/implement` reads the spec, runs the risk assessment, checks the ADR policy, plans (gate G1 for
    medium and high risk), writes code and tests, runs `make check`, opens a pull request.
-3. CI runs the quality gates, computes the risk level and labels the PR. The developer runs the
-   AI reviews the risk level requires (`/review-code`, from medium `/review-security`, for high
-   `/review-architecture`) in the session; CI checks that their comments exist for the head
-   commit. `/verify` walks the acceptance criteria and writes the evidence.
+3. CI runs the quality gates, computes the risk level and labels the PR. The developer runs
+   `/review <PR>` in the session: it starts the reviews the level requires (`review-code`, from
+   medium `review-security`, for high `review-architecture`) in parallel and skips those already
+   done for the commit. CI checks that their comments exist for the head commit. `/verify` walks
+   the acceptance criteria and writes the evidence.
 4. Low risk with green gates and no blocking findings merges automatically. Medium and high risk
    wait for a person (gate G2, and G3 for high).
 

@@ -1,9 +1,9 @@
 ---
 name: review-code
 description: Review the code of a pull request for correctness, security, data loss, spec compliance and the hard constraints of AGENTS.md, using the built-in code-review skill or the code-reviewer agent, and write the result as a PR comment that starts with "Code-Review". Run in the session on explicit request (/review-code <PR>); CI checks the comment as a required check and runs the skill itself only when a token secret is set.
-when_to_use: Load when the user runs /review-code, or when CI calls it with a PR number. Do not start it on your own.
-argument-hint: <PR number>
-disable-model-invocation: true
+when_to_use: Load only when the user runs /review-code or when the skill review invokes it with a PR number. Do not start it on your own.
+argument-hint: <PR number> [--no-rerun]
+context: fork
 ---
 
 # Code review
@@ -23,9 +23,11 @@ head commit is missing or reports blocking findings.
 
 ## 2. Review
 
-- The skill `code-review` is available: invoke it with args `<n> high`.
-- Otherwise: run the agent `code-reviewer` with the diff path, the spec path, `AGENTS.md` and the
-  `project-rules/*.md` of the touched areas, and take its findings.
+- The Skill tool offers `code-review`: invoke it with args `<n> high`.
+- Otherwise, the Agent tool is available: run the agent `code-reviewer` with the diff path, the
+  spec path, `AGENTS.md` and the `project-rules/*.md` of the touched areas, and take its findings.
+- Otherwise (forked run without those tools): do the review yourself by the rules in
+  `.claude/agents/code-reviewer.md`.
 
 Add these checks in every case:
 
@@ -60,6 +62,9 @@ Nicht geprüft: <was außerhalb des Diffs lag oder nicht verifizierbar war, oder
 The first line and the `Ergebnis:` line are read by CI. Keep their form exactly.
 
 ## 4. CI check
+
+Skip this step when the arguments contain `--no-rerun`; the skill `review` reruns CI once for
+all reviews.
 
 The job `review-code` in `ai-review.yml` checks for this comment. When the PR already had a run for
 this commit, rerun its failed jobs so the check turns green:

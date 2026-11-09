@@ -1,9 +1,9 @@
 ---
 name: review-architecture
 description: Architecture review of a pull request against docs/architecture, the ADRs and project-rules - module boundaries, dependency direction, deviations without an ADR, missing ADRs per harness/policies/adr.md, contract changes without a spec section - written as a PR comment that starts with "Architektur-Review". Run in the session on explicit request (/review-architecture <PR>); CI checks the comment for high risk or contract changes and runs the skill itself only when a token secret is set.
-when_to_use: Load when the user runs /review-architecture, or when CI calls it with a PR number. Do not start it on your own.
-argument-hint: <PR number>
-disable-model-invocation: true
+when_to_use: Load only when the user runs /review-architecture or when the skill review invokes it with a PR number. Do not start it on your own.
+argument-hint: <PR number> [--no-rerun]
+context: fork
 ---
 
 # Architecture review
@@ -17,9 +17,10 @@ As in `review-code` step 1. An existing comment that starts with `Architektur-Re
 
 ## 2. Review
 
-Run the agent `architecture-reviewer` with: the diff path, the spec path, `docs/architecture/
-overview.md`, every ADR in `docs/adr/`, the `project-rules/*.md` of the touched areas and
-`harness/policies/adr.md`. Take its findings and add:
+Run the agent `architecture-reviewer` with: the diff path, the spec path,
+`docs/architecture/overview.md`, every ADR in `docs/adr/`, the `project-rules/*.md` of the touched
+areas and `harness/policies/adr.md`. Without the Agent tool (forked run): do the review yourself
+by the rules in `.claude/agents/architecture-reviewer.md`. Take the findings and add:
 
 1. ADR policy: walk the six conditions in `harness/policies/adr.md`. Required and no ADR linked
    in the spec or the PR body: blocking.
@@ -49,6 +50,9 @@ ADR: <vorhanden NNNN | nicht nötig, weil ... | FEHLT: Bedingung n>
 ```
 
 ## 4. CI check
+
+Skip this step when the arguments contain `--no-rerun`; the skill `review` reruns CI once for
+all reviews.
 
 The job `review-architecture` in `ai-review.yml` checks for this comment. When the PR already had a
 run for this commit, rerun its failed jobs so the check turns green:
