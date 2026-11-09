@@ -37,7 +37,7 @@ jobs:
       - name: Dependabot metadata
         id: dependabot
         if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v3
 
       - name: Compute the level
         id: level
