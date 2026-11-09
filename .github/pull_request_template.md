@@ -24,6 +24,11 @@ docs/specs/NNNN-<slug>.md
 |---|---|
 | A1 | Test `<pfad>` / `/verify` im Browser |
 
+## Gate-Änderung
+
+<!-- Nur wenn der PR eine Prüfung abschaltet oder eine Gate-Datei ändert, eine Zeile
+     "Gate-Änderung: <Grund>" am Zeilenanfang. Sonst den Abschnitt löschen. -->
+
 ## Checks
 
 - [ ] `make check` grün

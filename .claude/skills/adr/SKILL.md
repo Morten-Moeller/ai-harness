@@ -1,7 +1,7 @@
 ---
 name: adr
 description: Write an architecture decision record into docs/adr/NNNN-<slug>.md (MADR), add its row to docs/adr/README.md and link it from the spec. Only on explicit request (/adr <title>) or when /implement stops because the ADR policy requires one.
-when_to_use: Load when the user runs /adr, or when /implement or /review-architecture report that harness/policies/adr.md requires an ADR that does not exist.
+when_to_use: Load when the user runs /adr, or when /implement or /review report that harness/policies/adr.md requires an ADR that does not exist.
 argument-hint: <decision as a sentence> [--spec NNNN]
 disable-model-invocation: true
 ---

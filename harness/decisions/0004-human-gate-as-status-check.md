@@ -1,6 +1,6 @@
 # 0004: The human merge gate is a status check, not a ruleset review requirement
 
-Status: accepted, 2026-11-09
+Status: superseded by 0006, 2026-11-09
 
 ## Context
 

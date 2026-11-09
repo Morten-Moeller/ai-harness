@@ -15,7 +15,7 @@ linked from the spec and the PR.
    one team.
 5. The change **deviates from `project-rules/`** or from an existing ADR. The new ADR then
    supersedes the old one or records the exception.
-6. A **reviewer** (`/review-architecture` or a person) asks for one.
+6. A **reviewer** (`/review` or a person) asks for one.
 
 ## An ADR is not required when
 
@@ -37,5 +37,6 @@ linked from the spec and the PR.
 
 - `/implement` checks this policy after the risk assessment and stops when an ADR is required and
   missing.
-- `/review-architecture` reports a missing ADR as a blocking finding.
+- `harness/scripts/review-rules.sh` (rule `adr`) blocks a high-risk PR without a linked ADR;
+  the architecture review of `/review` reports a missing ADR for the other conditions.
 - The PR template has an `ADR` field. `none required` is a valid value with the reason behind it.

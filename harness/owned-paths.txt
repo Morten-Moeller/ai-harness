@@ -8,6 +8,7 @@
 harness/README.md
 harness/workflow.md
 harness/quality-gates.md
+harness/review.md
 harness/gates.mk
 harness/policies/
 harness/owned-paths.txt

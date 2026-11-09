@@ -2,4 +2,4 @@
 
 `overview.md` beschreibt das System auf zwei Ebenen: Kontext (wer und was spricht mit dem System)
 und Container (welche laufenden Teile es gibt). Modulgrenzen und Regeln, die
-`/review-architecture` prüft, stehen in `project-rules/`. Entscheidungen stehen in `docs/adr/`.
+`/review` prüft, stehen in `project-rules/`. Entscheidungen stehen in `docs/adr/`.

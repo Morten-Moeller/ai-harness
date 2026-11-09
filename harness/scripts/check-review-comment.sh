@@ -24,7 +24,7 @@ comment=$(gh pr view "$PR" --json comments --jq \
 
 if [ -z "$comment" ]; then
   echo "No '$PREFIX' comment for commit $SHA on PR #$PR."
-  echo "Run /${SKILL:-the review skill} $PR in a Claude Code session on this branch, or set CLAUDE_CODE_OAUTH_TOKEN so CI runs it."
+  echo "Run /review $PR in a Claude Code session (${SKILL:-all reviews}), or set CLAUDE_CODE_OAUTH_TOKEN so CI runs it."
   exit 1
 fi
 if printf '%s\n' "$comment" | grep -q '^Ergebnis: keine blockierenden Befunde'; then

@@ -1,12 +1,12 @@
 name: AI review
 
-# The review skills run in the developer's Claude Code session (/review-code <PR> and so on) and
-# write one PR comment each. CI checks that the comment for the head commit exists and reports no
-# blocking findings. When the secret CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`, works
-# with a Claude subscription) or ANTHROPIC_API_KEY is set, CI runs the skill itself before the
-# check. Without a secret nothing is called; the check alone decides. A review skill that posts
-# its comment after this run reruns the failed jobs (`gh run rerun --failed`) so the check turns
-# green for the same commit.
+# /review <PR> runs in the developer's Claude Code session and writes one PR comment per review
+# (harness/review.md). CI checks that the comment for the head commit exists and reports no
+# blocking findings; review-code also runs the rule check (harness/scripts/review-rules.sh, copy
+# from the base branch) and sets needs-human on a changed gate. When the secret
+# CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`, works with a Claude subscription) or
+# ANTHROPIC_API_KEY is set, CI runs /review for the job itself before the check. /review reruns
+# the failed jobs after posting, so the checks turn green for the same commit.
 #
 #   review-code          always, required check
 #   review-security      from medium risk
@@ -41,11 +41,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+      - id: dependabot
+        if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
       - id: level
         env:
           BASE: origin/${{ github.base_ref }}
+          UPDATE_TYPE: ${{ steps.dependabot.outputs.update-type }}
         run: |
-          level=$(harness/scripts/risk-level.sh --base "$BASE" --format level)
+          args=(--base "$BASE")
+          if [ -n "$UPDATE_TYPE" ]; then args+=(--dependabot "$UPDATE_TYPE"); fi
+          level=$(harness/scripts/risk-level.sh "${args[@]}" --format level)
           echo "level=$level" >> "$GITHUB_OUTPUT"
           if git diff --name-only "$BASE...HEAD" | grep -Eq '^(contracts/|docs/architecture/)'; then
             echo "architecture=true" >> "$GITHUB_OUTPUT"
@@ -76,16 +82,36 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: "/review-code ${{ needs.scope.outputs.pr }}"
+          prompt: "/review ${{ needs.scope.outputs.pr }} code --no-rerun"
           claude_args: >-
             --max-turns 80
-            --allowedTools "Read,Grep,Glob,Skill,Agent,Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr comment*),Bash(git diff*),Bash(git log*),Bash(git show*)"
+            --allowedTools "Read,Write,Grep,Glob,Skill,Agent,Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr comment*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(git fetch*),Bash(git merge-base*),Bash(harness/scripts/risk-level.sh*),Bash(harness/scripts/review-rules.sh*)"
+      - name: Rule check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ needs.scope.outputs.pr }}
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          script=harness/scripts/review-rules.sh
+          if git cat-file -e "$BASE:harness/scripts/review-rules.sh" 2>/dev/null; then
+            git show "$BASE:harness/scripts/review-rules.sh" > "$RUNNER_TEMP/review-rules.sh"
+            script="$RUNNER_TEMP/review-rules.sh"
+          fi
+          status=0
+          bash "$script" --root "$GITHUB_WORKSPACE" --pr "$PR" --format json > "$RUNNER_TEMP/rules.json" || status=$?
+          bash "$script" --root "$GITHUB_WORKSPACE" --pr "$PR" --format markdown >> "$GITHUB_STEP_SUMMARY" || true
+          if [ "$(jq -r .needs_human "$RUNNER_TEMP/rules.json")" = true ]; then
+            gh pr edit "$PR" --add-label needs-human || echo "Could not set needs-human."
+          fi
+          jq -r '.findings[] | "\(.rule) \(.location): \(.message)"' "$RUNNER_TEMP/rules.json"
+          exit "$status"
       - name: Check the review comment
+        if: ${{ always() }}
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ needs.scope.outputs.pr }}
           SHA: ${{ needs.scope.outputs.sha }}
-        run: harness/scripts/check-review-comment.sh --pr "$PR" --sha "$SHA" --prefix Code-Review --skill review-code
+        run: harness/scripts/check-review-comment.sh --pr "$PR" --sha "$SHA" --prefix Code-Review --skill code
 
   review-security:
     name: review-security
@@ -105,16 +131,16 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: "/review-security ${{ needs.scope.outputs.pr }}"
+          prompt: "/review ${{ needs.scope.outputs.pr }} security --no-rerun"
           claude_args: >-
             --max-turns 80
-            --allowedTools "Read,Grep,Glob,Skill,Agent,Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr comment*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(gitleaks*),Bash(osv-scanner*)"
+            --allowedTools "Read,Write,Grep,Glob,Skill,Agent,Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr comment*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(git fetch*),Bash(git merge-base*),Bash(harness/scripts/risk-level.sh*),Bash(harness/scripts/review-rules.sh*)"
       - name: Check the review comment
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ needs.scope.outputs.pr }}
           SHA: ${{ needs.scope.outputs.sha }}
-        run: harness/scripts/check-review-comment.sh --pr "$PR" --sha "$SHA" --prefix Security-Review --skill review-security
+        run: harness/scripts/check-review-comment.sh --pr "$PR" --sha "$SHA" --prefix Security-Review --skill security
 
   review-architecture:
     name: review-architecture
@@ -134,13 +160,13 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: "/review-architecture ${{ needs.scope.outputs.pr }}"
+          prompt: "/review ${{ needs.scope.outputs.pr }} architecture --no-rerun"
           claude_args: >-
             --max-turns 80
-            --allowedTools "Read,Grep,Glob,Skill,Agent,Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr comment*),Bash(git diff*),Bash(git log*),Bash(git show*)"
+            --allowedTools "Read,Write,Grep,Glob,Skill,Agent,Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr comment*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(git fetch*),Bash(git merge-base*),Bash(harness/scripts/risk-level.sh*),Bash(harness/scripts/review-rules.sh*)"
       - name: Check the review comment
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ needs.scope.outputs.pr }}
           SHA: ${{ needs.scope.outputs.sha }}
-        run: harness/scripts/check-review-comment.sh --pr "$PR" --sha "$SHA" --prefix Architektur-Review --skill review-architecture
+        run: harness/scripts/check-review-comment.sh --pr "$PR" --sha "$SHA" --prefix Architektur-Review --skill architecture

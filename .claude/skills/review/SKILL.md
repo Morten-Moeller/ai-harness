@@ -1,55 +1,143 @@
 ---
 name: review
-description: Run every AI review a pull request needs by its risk level - review-code always, review-security from medium, review-architecture for high risk or contract changes - as parallel forked skills, skip the reviews whose comment for the head commit already exists, then rerun the failed CI jobs once. Only on explicit request (/review <PR> [--force]).
-when_to_use: Load when the user runs /review or asks for the reviews of a pull request. Do not start it on your own.
-argument-hint: <PR number> [--force]
+description: Review a pull request in one run - deterministic rule check (harness/scripts/review-rules.sh), then the AI reviews its risk level needs (code always, security from medium, architecture for high risk or contract changes) by read-only reviewer agents, incremental against the last reviewed commit and as one combined agent run for small diffs, then one PR comment per review. Only on explicit request (/review <PR> [code] [security] [architecture] [--force] [--no-rerun]).
+when_to_use: Load when the user runs /review or asks for the reviews of a pull request, or when CI runs it with a PR number. Do not start it on your own.
+argument-hint: <PR number> [code] [security] [architecture] [--force] [--no-rerun]
 disable-model-invocation: true
 ---
 
-# Review (all required reviews)
+# Review
 
-One trigger for the three review skills. Each review is tied to a commit: a comment whose first
-line names the head SHA counts as done. `--force` runs every required review again.
+Rules, cost model and states: `harness/review.md`. The merge is never part of this skill.
 
-## 1. Resolve
+This session collects data, decides which reviews run, starts the agents and posts the comments.
+It does not review code itself. The agents read and return findings; they start without this
+conversation and on the model of their agent file.
 
-1. `gh pr view <n> --json headRefOid,baseRefName,files,comments,labels`. Write the file paths to
-   a scratchpad file and `gh pr diff <n>` to another.
-2. Level: `harness/scripts/risk-level.sh --files-from <paths> --diff-from <diff> --format level`.
-   Author `dependabot[bot]`: pass `--dependabot <update-type>` from the PR title.
-3. Architecture flag: any file under `contracts/` or `docs/architecture/`.
+Work directory: `<scratchpad>/review-<PR>-<first 7 characters of the head SHA>/`.
 
-## 2. Plan the set
+## 1. Collect
 
-| Review | Needed when | Comment prefix |
-|---|---|---|
-| `review-code` | always | `Code-Review` |
-| `review-security` | level is medium or high | `Security-Review` |
-| `review-architecture` | level is high, or the architecture flag is set | `Architektur-Review` |
+1. `gh pr view <n> --json title,body,author,headRefOid,baseRefName,files,comments,commits`.
+2. `git fetch -q origin <base> "pull/<n>/head"`.
+3. `files.txt`: the paths. `diff.patch`: `gh pr diff <n>`.
+4. Dependabot author: the update type is the line `update-type:` in the message body of the first
+   commit. Pass it to `risk-level.sh` as `--dependabot <type>`.
+5. `harness/scripts/risk-level.sh --files-from files.txt --diff-from diff.patch --format json`:
+   fields `level` and `lines`.
+6. `harness/scripts/review-rules.sh --pr <n> --format markdown > rules.md`. Exit 1 means blocking
+   rule findings; continue.
+7. Spec: `docs/specs/NNNN-*.md` from `(NNNN)` in the title or a path in the body. In the harness
+   repository (`harness/templates/` exists) a `harness/decisions/NNNN-*.md` of the PR takes its
+   place.
 
-For each needed review: a comment that starts with the prefix and contains the head SHA exists
-and `--force` is not given: `vorhanden`. Otherwise: `läuft`. Not needed: `nicht nötig`.
+## 2. Plan
 
-Print the table (review, status, reason) before running anything. Nothing to run and CI already
-green: report and stop. Nothing to run and a review check red: go to step 4.
+| Review | Needed when | Agent | Comment prefix |
+|---|---|---|---|
+| code | always | `code-reviewer` | `Code-Review` |
+| security | level medium or high | `security-reviewer` | `Security-Review` |
+| architecture | level high, or a file under `contracts/` or `docs/architecture/` | `architecture-reviewer` | `Architektur-Review` |
 
-## 3. Run
+Type arguments (`code`, `security`, `architecture`) restrict the run to those reviews.
 
-Invoke the Skill tool once per review marked `läuft`, all in the same message so they run in
-parallel: `review-code` with args `<n> --no-rerun`, `review-security` with args `<n> --no-rerun`,
-`review-architecture` with args `<n> --no-rerun`. They run as forked subagents and write their
-own comments. Do not review yourself and do not repeat a review that is running. Wait for every
-result.
+State of each review, from its newest comment. The first line of a comment names the reviewed
+commit (`Commit <sha>`).
 
-## 4. CI
+| Case | State |
+|---|---|
+| `--force`, or no comment | `voll` |
+| comment names the head commit | `vorhanden` |
+| comment names an ancestor of the head (`git merge-base --is-ancestor <old> <head>`) | from the delta, below |
+| anything else (rebase, force push) | `voll` |
 
-After every started review has finished, rerun the failed jobs of the AI-review run once:
-`gh run list --workflow ai-review.yml --commit <head SHA> --json databaseId --jq '.[0].databaseId'`
-and `gh run rerun <id> --failed`. No run for this commit: nothing to do.
+Delta: `git diff --name-only <old> <head>`, only the paths that are also in `files.txt`, into
+`delta-<type>.txt`.
 
-## 5. Summary
+- No path left: `übernommen`.
+- `risk-level.sh --files-from delta-<type>.txt --format level` prints `low`: `übernommen`.
+- Otherwise: `inkrementell`. Write `git diff <old> <head> -- <delta paths>` to
+  `delta-<type>.patch` and the old comment body to `prev-<type>.md`.
 
-Per review: `vorhanden`, `gelaufen` with the blocking and non-blocking counts from its result and
-the comment URL, or `nicht nötig`. Whether CI was rerun. What the person does next: set the label
-`human-approved` (medium, high) or wait for auto-merge (low). Do not repeat the findings; the
-comments hold them.
+Print the table (review, state, reason). No review in state `voll` or `inkrementell`: go to
+step 4.
+
+## 3. Agents
+
+**Combined run**: two or more reviews in state `voll` or `inkrementell`, and `lines` at most
+`review_combined_max_lines` from `harness/config.yml`. One Agent call with subagent type
+`code-reviewer` covers all of them, one section per review.
+
+**Separate runs** otherwise: one Agent call per review, all in the same message.
+
+Prompt, filled in and nothing more:
+
+```text
+Review PR #<n>, head <sha>, risk <level>.
+Mode: <voll | inkrementell seit <old sha>>.
+Diff: <diff.patch | delta-<type>.patch>. Changed files: <files.txt>.
+Spec: <path | keine>.
+Rule check: <rules.md>. Its items are checked; do not report them again.
+[inkrementell] Previous comment: <prev-<type>.md>. Mark each previous finding behoben or offen.
+[combined] Sections: <Code | Sicherheit | Architektur>. Sicherheit follows
+.claude/agents/security-reviewer.md, Architektur follows .claude/agents/architecture-reviewer.md.
+Return per section the table of the agent file and one line "Nicht geprüft: ...".
+```
+
+Wait for every agent.
+
+## 4. Comments
+
+One comment per review in state `voll`, `inkrementell` or `übernommen`:
+`gh pr comment <n> --body-file <file>`. Language: `doc_language` in `harness/config.yml`. CI reads
+the first line and the `Ergebnis:` line; keep their form.
+
+```text
+<Prefix> <YYYY-MM-DD>, Commit <head sha>
+
+Ergebnis: <keine blockierenden Befunde | n blockierende Befunde>
+
+[inkrementell] Inkrementell seit Commit <old sha>.
+
+| Früherer Befund | Status |
+|---|---|
+
+[Code-Review only] <content of rules.md>
+
+| Datei:Zeile | Kategorie | Befund | Blockiert |
+|---|---|---|---|
+
+[Security-Review] Checkliste: <line from the agent>
+[Architektur-Review] ADR: <line from the agent>
+
+Nicht geprüft: <line from the agent>
+```
+
+The count in `Ergebnis:` is the blocking findings of the agent, plus the previous blocking findings
+that are `offen`, plus, in the Code-Review, the blocking findings of `rules.md`.
+
+State `übernommen`, no agent:
+
+```text
+<Prefix> <YYYY-MM-DD>, Commit <head sha>
+
+Ergebnis: <count>
+
+Übernommen von Commit <old sha>. Seit dem geändert: <delta paths | keine Datei dieses PR>, Risiko
+dieser Änderung low.
+```
+
+For the Code-Review the count is the blocking rows of the agent table in the old comment plus the
+blocking findings of the current `rules.md`, and the current `rules.md` goes into the comment. For
+the other reviews the `Ergebnis:` line of the old comment stays as it is.
+
+## 5. CI
+
+Without `--no-rerun`: `gh run list --workflow ai-review.yml --commit <head sha> --json databaseId
+--jq '.[0].databaseId'`, then `gh run rerun <id> --failed`. No run yet: nothing to do.
+
+## 6. Summary
+
+A table: review, state, blocking and non-blocking counts, comment URL. Whether CI was rerun. The
+next step for the person: the label `human-approved` after their own review (medium, high), or
+nothing (low). The findings are in the comments; do not repeat them.
