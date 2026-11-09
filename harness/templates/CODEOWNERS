@@ -1,0 +1,10 @@
+# Control files need a review by a person (ruleset: require_code_owner_review).
+# {{PROJECT_OWNER}} is replaced by bootstrap.sh. Add teams or people per path as the project grows.
+AGENTS.md                        @{{PROJECT_OWNER}}
+CLAUDE.md                        @{{PROJECT_OWNER}}
+/harness/                        @{{PROJECT_OWNER}}
+/.claude/                        @{{PROJECT_OWNER}}
+/.github/                        @{{PROJECT_OWNER}}
+/contracts/                      @{{PROJECT_OWNER}}
+/project-rules/                  @{{PROJECT_OWNER}}
+Makefile                         @{{PROJECT_OWNER}}

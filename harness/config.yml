@@ -1,0 +1,30 @@
+# Harness configuration. Copied once by bootstrap.sh, then owned by the project.
+#
+# Shape: keep it flat. Scalars as `key: value`, lists as `- item` lines under their key.
+# The hooks and scripts parse this file with awk; nested maps deeper than one level, inline
+# lists and anchors are not supported.
+
+# Language of spec and ADR documents and of every output for people (PR comments, reports).
+doc_language: de
+
+# Branch that pull requests target and that risk-level.sh diffs against.
+default_branch: main
+
+# Directories with source code. The Stop hook reminds about uncommitted changes under them.
+source_paths:
+  - src
+
+# Where the generated contracts live and which make target regenerates them. Empty = none.
+contracts_generate_target: ""
+
+# The size escalator: more changed lines than this raises low to medium.
+low_risk_max_lines: 200
+
+# Automatic merge (see harness/policies/auto-merge.md).
+auto_merge_enabled: true
+auto_merge_allowlist:
+  - "dependabot[bot]"
+  - "Morten-Moeller"
+
+# Models for the reviewer agents. "inherit" takes the session model.
+reviewer_model: inherit

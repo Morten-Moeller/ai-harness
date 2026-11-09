@@ -1,0 +1,9 @@
+# Control files need a review by a person (ruleset: require_code_owner_review).
+AGENTS.md                        @Morten-Moeller
+CLAUDE.md                        @Morten-Moeller
+/harness/                        @Morten-Moeller
+/.claude/                        @Morten-Moeller
+/.github/                        @Morten-Moeller
+/contracts/                      @Morten-Moeller
+/project-rules/                  @Morten-Moeller
+Makefile                         @Morten-Moeller

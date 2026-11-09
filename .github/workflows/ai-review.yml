@@ -1,0 +1,119 @@
+name: AI review
+
+# Runs the review skills of this repository with Claude Code. review-code runs always and is a
+# required check: the job fails when the review comment reports blocking findings or when no
+# comment was written. review-security runs from medium risk, review-architecture for high risk
+# or when contracts/ or docs/architecture/ changed.
+#
+# Secrets: ANTHROPIC_API_KEY (or CLAUDE_CODE_OAUTH_TOKEN; then swap the input below).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  risk:
+    name: review-scope
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    outputs:
+      level: ${{ steps.level.outputs.level }}
+      architecture: ${{ steps.level.outputs.architecture }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: level
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          level=$(harness/scripts/risk-level.sh --base "$BASE" --format level)
+          echo "level=$level" >> "$GITHUB_OUTPUT"
+          if git diff --name-only "$BASE...HEAD" | grep -Eq '^(contracts/|docs/architecture/)'; then
+            echo "architecture=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "architecture=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  review-code:
+    name: review-code
+    needs: risk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: "/review-code ${{ github.event.pull_request.number }}"
+          claude_args: >-
+            --max-turns 80
+            --allowedTools "Read,Grep,Glob,Skill,Agent,Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr comment*),Bash(git diff*),Bash(git log*),Bash(git show*)"
+      - name: Fail on blocking findings
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          comment=$(gh pr view "$PR" --json comments --jq \
+            '[.comments[] | select(.body | startswith("Code-Review")) | select(.body | contains("'"$SHA"'"))] | last | .body // empty')
+          if [ -z "$comment" ]; then
+            echo "No Code-Review comment for commit $SHA."; exit 1
+          fi
+          if printf '%s' "$comment" | grep -q '^Ergebnis: keine blockierenden Befunde'; then
+            echo "No blocking findings."
+          else
+            printf '%s\n' "$comment" | grep '^Ergebnis:' || true
+            exit 1
+          fi
+
+  review-security:
+    name: review-security
+    needs: risk
+    if: ${{ needs.risk.outputs.level != 'low' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: "/review-security ${{ github.event.pull_request.number }}"
+          claude_args: >-
+            --max-turns 80
+            --allowedTools "Read,Grep,Glob,Skill,Agent,Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr comment*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(gitleaks*),Bash(osv-scanner*)"
+
+  review-architecture:
+    name: review-architecture
+    needs: risk
+    if: ${{ needs.risk.outputs.level == 'high' || needs.risk.outputs.architecture == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: "/review-architecture ${{ github.event.pull_request.number }}"
+          claude_args: >-
+            --max-turns 80
+            --allowedTools "Read,Grep,Glob,Skill,Agent,Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr comment*),Bash(git diff*),Bash(git log*),Bash(git show*)"

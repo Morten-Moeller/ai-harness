@@ -1,0 +1,41 @@
+name: Setup
+description: Toolchain for the gates of the harness repository itself (shellcheck, actionlint, markdownlint, semgrep, gitleaks, osv-scanner).
+
+runs:
+  using: composite
+  steps:
+    - name: Install shellcheck
+      shell: bash
+      run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends shellcheck
+
+    - name: Install actionlint
+      shell: bash
+      env:
+        ACTIONLINT_VERSION: 1.7.7
+      run: |
+        curl -sSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+          | sudo tar -xz -C /usr/local/bin actionlint
+
+    - name: Install markdownlint-cli2
+      shell: bash
+      run: npm install -g markdownlint-cli2@0.17.2
+
+    - name: Install semgrep
+      shell: bash
+      run: pipx install semgrep
+
+    - name: Install gitleaks
+      shell: bash
+      env:
+        GITLEAKS_VERSION: 8.21.2
+      run: |
+        curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+          | sudo tar -xz -C /usr/local/bin gitleaks
+
+    - name: Install osv-scanner
+      shell: bash
+      env:
+        OSV_VERSION: v2.0.2
+      run: |
+        sudo curl -sSL "https://github.com/google/osv-scanner/releases/download/${OSV_VERSION}/osv-scanner_linux_amd64" -o /usr/local/bin/osv-scanner
+        sudo chmod +x /usr/local/bin/osv-scanner
