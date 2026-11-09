@@ -38,7 +38,9 @@
       "Edit(./CLAUDE.md)",
       "Edit(./.github/workflows/auto-merge.yml)",
       "Edit(./.claude/settings.json)",
-      "Bash(gh api *labels*)"
+      "Bash(gh api *labels*)",
+      "Bash(gh issue edit*)",
+      "Bash(gh api graphql*)"
     ]
   },
   "hooks": {
