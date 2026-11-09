@@ -199,7 +199,10 @@ if enabled gate; then
       if (s != "") printf "%s(%s)", (n++ ? "|" : ""), s
     }
   ' "$MATRIX" 2>/dev/null || true)
-  [ -n "$GATE_RE" ] || GATE_RE='a^'
+  if [ -z "$GATE_RE" ]; then
+    add gate "harness/risk-matrix.yml" process ja "Die Liste gate_markers fehlt oder ist leer; abgeschaltete Prüfungen werden nicht erkannt."
+    GATE_RE='a^'
+  fi
   b=ja
   [ -n "$gate_reason" ] && b=nein
   GATE_RE="$GATE_RE" awk -F'\t' '$3 ~ ENVIRON["GATE_RE"] { t=$3; sub(/^[ \t]+/, "", t); print $1 ":" $2 "\t" substr(t, 1, 80) }' "$TMP/added.code" \

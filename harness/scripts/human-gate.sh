@@ -7,13 +7,14 @@
 #   human-gate.sh --level <low|medium|high> --pr <n> --sha <head sha> --author <login>
 #                 [--repo <owner/name>] [--config <file>] [--labels <a,b,...>]
 #                 [--reviews-json <file>] [--events-json <file>] [--pushed-at <iso time>]
-#                 [--remove-stale]
+#                 [--permissions <login=permission,...>] [--remove-stale]
 #
-# Without --labels, the *-json options and --pushed-at the data comes from the GitHub API.
+# Without --labels, the *-json options, --pushed-at and --permissions the data comes from the
+# GitHub API. An approval counts only from an account with the permission write, maintain or admin.
 # Exit 0: the gate passes. Exit 1: the gate fails; the output says why. Exit 2: usage error.
 set -euo pipefail
 
-usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; }
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 CONFIG="$ROOT/harness/config.yml"
@@ -27,6 +28,8 @@ LABELS_SET=0
 REVIEWS_JSON=""
 EVENTS_JSON=""
 PUSHED_AT=""
+PERMISSIONS=""
+PERMISSIONS_SET=0
 REMOVE_STALE=0
 
 while [ $# -gt 0 ]; do
@@ -41,6 +44,7 @@ while [ $# -gt 0 ]; do
     --reviews-json) REVIEWS_JSON="$2"; shift 2 ;;
     --events-json) EVENTS_JSON="$2"; shift 2 ;;
     --pushed-at) PUSHED_AT="$2"; shift 2 ;;
+    --permissions) PERMISSIONS="$2"; PERMISSIONS_SET=1; shift 2 ;;
     --remove-stale) REMOVE_STALE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -92,12 +96,26 @@ if [ -n "$REVIEWS_JSON" ]; then
 else
   gh api "repos/$REPO/pulls/$PR/reviews?per_page=100" > "$TMP/reviews.json"
 fi
-approvers=$(jq -r --arg sha "$SHA" --arg author "$AUTHOR" '
+candidates=$(jq -r --arg sha "$SHA" --arg author "$AUTHOR" '
   [.[] | select(.commit_id == $sha and .user.login != $author and .user.type == "User")
        | select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR")
        | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")]
-  | group_by(.user.login) | map(last | select(.state == "APPROVED") | .user.login) | join(", ")
+  | group_by(.user.login) | map(last | select(.state == "APPROVED") | .user.login) | .[]
 ' "$TMP/reviews.json")
+permission_of() {
+  if [ "$PERMISSIONS_SET" = 1 ]; then
+    printf '%s\n' "$PERMISSIONS" | tr ',' '\n' | awk -F= -v l="$1" '$1 == l { print $2; exit }'
+  else
+    gh api "repos/$REPO/collaborators/$1/permission" --jq '.permission' 2>/dev/null || true
+  fi
+}
+approvers=""
+for login in $candidates; do
+  case "$(permission_of "$login")" in
+    admin|maintain|write) approvers="${approvers:+$approvers, }$login" ;;
+    *) echo "Approval by $login on commit $short does not count: no write permission." ;;
+  esac
+done
 [ -n "$approvers" ] && pass "Risk $LEVEL: approved on commit $short by $approvers (G2)."
 
 need_second=0

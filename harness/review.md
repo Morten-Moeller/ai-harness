@@ -33,8 +33,15 @@ fails `review-code` even when the comment says otherwise.
 The patterns for switched-off checks are the list `gate_markers` in `harness/risk-matrix.yml`.
 `risk-level.sh` reads the same list and raises a low-risk PR with such a line to medium, so it
 never merges automatically (`harness/policies/auto-merge.md`). CI also sets the label
-`needs-human` on any `gate` finding. Dependabot PRs skip `spec` and `adr`. A project switches a
-rule off in `harness/config.yml` (`review_rules_disabled`).
+`needs-human` on any `gate` finding and removes it again when a later run finds none and the label
+was set by CI. A `needs-human` set by a person stays.
+
+The scripts read the matrix and the config each with their own few lines of awk. They stay
+self-contained on purpose: CI copies single scripts from the base branch into a temporary
+directory, where a shared helper file would be missing (decision 0008).
+
+Dependabot PRs skip `spec` and `adr`. A project switches a rule off in `harness/config.yml`
+(`review_rules_disabled`).
 
 In the harness repository itself a decision record in `harness/decisions/` takes the place of the
 spec and of the ADR: the repository has no `docs/specs/` of its own, because `docs/` is the project
@@ -65,8 +72,9 @@ The newest comment of a review names the commit it reviewed.
   touches.
 - Model and effort are set in `.claude/agents/*.md` (default: Sonnet, effort medium). Raise them
   there for a project that needs it.
-- A PR with at most `review_combined_max_lines` changed lines (`harness/config.yml`) gets one
-  agent run for all of its reviews.
+- When the diff under review has at most `review_combined_max_lines` changed lines
+  (`harness/config.yml`), one agent run covers all reviews. For an incremental run that is the
+  delta, not the whole PR.
 - Secrets and vulnerable dependencies are left to the gates `sast` and `deps`.
 - The built-in `/code-review` and `/security-review` skills are not part of `/review`. Run them by
   hand on a PR that needs a deeper look.

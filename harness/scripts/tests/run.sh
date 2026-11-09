@@ -161,7 +161,8 @@ printf '[{"event":"labeled","label":{"name":"human-approved"},"actor":{"type":"U
 printf '[{"event":"labeled","label":{"name":"human-approved"},"actor":{"type":"Bot"},"created_at":"2026-11-09T12:00:00Z"}]\n' > "$TMP/label-bot-noon.json"
 printf '[{"commit_id":"%s","user":{"login":"stranger","type":"User"},"author_association":"NONE","state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-stranger.json"
 printf '[{"commit_id":"%s","user":{"login":"app","type":"Bot"},"author_association":"COLLABORATOR","state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-bot.json"
-gate() { "$HG" --pr 7 --sha "$SHA_A" --author author --events-json "$TMP/label-user-noon.json" --pushed-at 2026-11-09T11:00:00Z "$@" >/dev/null 2>&1 && echo pass || echo fail; }
+gate() { "$HG" --pr 7 --sha "$SHA_A" --author author --events-json "$TMP/label-user-noon.json" --pushed-at 2026-11-09T11:00:00Z --permissions "reviewer=write,author=admin,stranger=read,app=write,reader=read" "$@" >/dev/null 2>&1 && echo pass || echo fail; }
+printf '[{"commit_id":"%s","user":{"login":"reader","type":"User"},"author_association":"MEMBER","state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-reader.json"
 c=$(gate_cfg human-approved '""')
 check "gate: low passes without anything" pass "$(gate --level low --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
 check "gate: medium without label or review fails" fail "$(gate --level medium --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
@@ -171,6 +172,7 @@ check "gate: label set by a bot fails" fail "$(gate --level medium --config "$c"
 check "gate: approval by another person on the head commit passes" pass "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-a.json")"
 check "gate: approval on an older commit does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-b.json")"
 check "gate: approval by an account without write access does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-stranger.json")"
+check "gate: approval by a member with read permission does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-reader.json")"
 check "gate: approval by a bot does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-bot.json")"
 check "gate: approval by the author does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-self.json")"
 check "gate: changes requested after approval does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-then-changes.json")"
@@ -243,6 +245,9 @@ check "rules: gate change asks for a person" "true" "$("$RR/harness/scripts/revi
 rrgit checkout -q main -- src/a.ts
 printf '  - %s\n' "'eslint-disable'" >> "$RR/harness/risk-matrix.yml"
 check "rules: the pattern list in the risk matrix is no switched-off check" "" "$(rule_rows "$(rr)" gate)"
+rrgit checkout -q main -- harness/risk-matrix.yml
+awk '/^gate_markers:/ { exit } { print }' "$ROOT/harness/risk-matrix.yml" > "$RR/harness/risk-matrix.yml"
+check "rules: a missing gate_markers list blocks" "ja" "$(rule_rows "$(rr)" gate)"
 rrgit checkout -q main -- harness/risk-matrix.yml
 RR_BODY=$'| A1 | t |\n| A2 | t |'
 printf 'openapi: 3.1.0\n' > "$RR/contracts/api.yaml"
