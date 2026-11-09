@@ -11,7 +11,7 @@ updates:
       time: "06:00"
       timezone: Europe/Berlin
     cooldown:
-      default-days: 2
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(ci)"
@@ -28,7 +28,7 @@ updates:
   #   schedule:
   #     interval: weekly
   #   cooldown:
-  #     default-days: 2
+  #     default-days: 7
   #   groups:
   #     minor-and-patch:
   #       patterns: ["*"]
