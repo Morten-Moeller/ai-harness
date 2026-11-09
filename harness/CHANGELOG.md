@@ -2,6 +2,26 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.2.1 (2026-11-09)
+
+Manual steps after `update.sh`:
+
+- Copy the list `gate_markers` into `harness/risk-matrix.yml`; `update.sh` shows it in the diff of
+  the matrix. Without it every pull request gets a blocking finding of the rule `gate`.
+- Projects on 0.1: the update pull request runs without rule check and with `human-gate.sh` from
+  the pull request, because the base branch has neither yet. Review it by hand before the label.
+
+Changes:
+
+- An approval counts for G2 only from a person with the permission write, maintain or admin
+  (collaborators API). Since 0.2.0 approvals also have to be on the head commit and from an
+  account of type `User`.
+- `review-rules.sh` blocks when the list `gate_markers` is missing or empty.
+- `/review` decides the combined agent run by the size of the diff it reviews, the delta for an
+  incremental run.
+- The rule check in CI takes its scripts only from the base branch and removes a `needs-human`
+  label that CI set when no gate finding is left. Decision 0008.
+
 ## 0.2.0 (2026-11-09)
 
 Manual steps after `update.sh`:

@@ -93,16 +93,17 @@ jobs:
           BASE: origin/${{ github.base_ref }}
         run: |
           base_copy() {
-            if git cat-file -e "$BASE:$1" 2>/dev/null && { [ -z "$2" ] || git show "$BASE:$1" | grep -q "$2"; }; then
-              git show "$BASE:$1" > "$RUNNER_TEMP/${1##*/}"
-            else
-              echo "$1 from the pull request (not on $BASE yet)."
-              cp "$1" "$RUNNER_TEMP/${1##*/}"
-            fi
+            git cat-file -e "$BASE:$1" 2>/dev/null || return 1
+            git show "$BASE:$1" > "$RUNNER_TEMP/${1##*/}"
           }
-          base_copy harness/scripts/review-rules.sh ""
-          base_copy harness/scripts/risk-level.sh ""
-          base_copy harness/risk-matrix.yml '^gate_markers:'
+          if ! base_copy harness/scripts/review-rules.sh || ! base_copy harness/scripts/risk-level.sh; then
+            echo "Rule check skipped: the rule scripts are not on $BASE yet (harness update). Code of the pull request does not run here."
+            exit 0
+          fi
+          if ! base_copy harness/risk-matrix.yml || ! grep -q '^gate_markers:' "$RUNNER_TEMP/risk-matrix.yml"; then
+            echo "harness/risk-matrix.yml on $BASE has no gate_markers yet; using the matrix of the pull request (data, not code)."
+            cp harness/risk-matrix.yml "$RUNNER_TEMP/risk-matrix.yml"
+          fi
           git diff --name-only "$BASE...HEAD" > "$RUNNER_TEMP/files.txt"
           git diff "$BASE...HEAD" > "$RUNNER_TEMP/diff.patch"
           level=$(bash "$RUNNER_TEMP/risk-level.sh" --files-from "$RUNNER_TEMP/files.txt" --diff-from "$RUNNER_TEMP/diff.patch" \
@@ -114,6 +115,12 @@ jobs:
           "${rules[@]}" --format markdown >> "$GITHUB_STEP_SUMMARY" || true
           if [ "$(jq -r .needs_human "$RUNNER_TEMP/rules.json")" = true ]; then
             gh pr edit "$PR" --add-label needs-human || echo "Could not set needs-human."
+          elif gh pr view "$PR" --json labels --jq '.labels[].name' | grep -qx needs-human; then
+            set_by=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/events?per_page=100" \
+              | jq -s -r 'add // [] | [.[] | select(.event == "labeled" and .label.name == "needs-human")] | last | .actor.login // ""')
+            if [ "$set_by" = "github-actions[bot]" ]; then
+              gh pr edit "$PR" --remove-label needs-human || echo "Could not remove needs-human."
+            fi
           fi
           jq -r '.findings[] | "\(.rule) \(.location): \(.message)"' "$RUNNER_TEMP/rules.json"
           exit "$status"
