@@ -1,6 +1,6 @@
 # 0006: The director records G2 with a label; a second reviewer is the exception
 
-Status: accepted, 2026-11-09. Supersedes the gate condition of 0004.
+Status: accepted, 2026-11-09. Supersedes the gate condition of 0004. Changed by 0010: label merges.
 
 ## Context
 

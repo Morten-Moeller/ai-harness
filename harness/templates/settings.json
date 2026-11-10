@@ -11,25 +11,39 @@
       "Bash(git branch*)",
       "Bash(git merge-base*)",
       "Bash(git ls-files*)",
+      "Bash(git rev-parse*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git checkout*)",
+      "Bash(git switch*)",
       "Bash(gh pr view*)",
       "Bash(gh pr list*)",
       "Bash(gh pr diff*)",
       "Bash(gh pr checks*)",
+      "Bash(gh pr create*)",
+      "Bash(gh pr edit*)",
       "Bash(gh pr comment*)",
-      "Bash(harness/scripts/risk-level.sh*)",
-      "Bash(./harness/scripts/risk-level.sh*)",
       "Bash(gh run list*)",
       "Bash(gh run view*)",
+      "Bash(gh run watch*)",
       "Bash(gh run rerun*)",
+      "Bash(gh api *)",
+      "Bash(harness/scripts/risk-level.sh*)",
+      "Bash(./harness/scripts/risk-level.sh*)",
       "Bash(harness/scripts/review-rules.sh*)",
-      "Bash(./harness/scripts/review-rules.sh*)"
+      "Bash(./harness/scripts/review-rules.sh*)",
+      "Bash(harness/scripts/review-status.sh*)",
+      "Bash(./harness/scripts/review-status.sh*)"
     ],
     "deny": [
       "Bash(gh pr merge*)",
       "Bash(gh pr review*)",
-      "Bash(gh pr edit*)",
       "Bash(gh label*)",
       "Bash(gh api *rulesets*)",
+      "Bash(gh api *labels*)",
+      "Bash(gh api graphql*)",
+      "Bash(gh issue edit*)",
       "Bash(gh secret*)",
       "Bash(git push --force*)",
       "Bash(git push -f*)",
@@ -39,12 +53,10 @@
       "Edit(./harness/policies/**)",
       "Edit(./harness/risk-matrix.yml)",
       "Edit(./harness/config.yml)",
+      "Edit(./harness/scripts/human-gate.sh)",
       "Edit(./.github/workflows/auto-merge.yml)",
       "Edit(./.claude/settings.json)",
-      "Bash(gh api *labels*)",
-      "Edit(./harness/scripts/human-gate.sh)",
-      "Bash(gh issue edit*)",
-      "Bash(gh api graphql*)"
+      "Edit(./.claude/hooks/**)"
     ]
   },
   "hooks": {
@@ -54,6 +66,17 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-context.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-bash.sh"
           }
         ]
       }

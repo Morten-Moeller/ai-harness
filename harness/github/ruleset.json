@@ -40,28 +40,39 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "gates (test)"
+            "context": "gates (test)",
+            "integration_id": 15368
           },
           {
-            "context": "gates (typecheck)"
+            "context": "gates (typecheck)",
+            "integration_id": 15368
           },
           {
-            "context": "gates (lint)"
+            "context": "gates (lint)",
+            "integration_id": 15368
           },
           {
-            "context": "gates (sast)"
+            "context": "gates (sast)",
+            "integration_id": 15368
           },
           {
-            "context": "gates (deps)"
+            "context": "gates (deps)",
+            "integration_id": 15368
           },
           {
-            "context": "risk"
+            "context": "risk",
+            "integration_id": 15368
           },
           {
-            "context": "review-code"
+            "context": "review-rules",
+            "integration_id": 15368
           },
           {
-            "context": "human-gate"
+            "context": "human-gate",
+            "integration_id": 15368
+          },
+          {
+            "context": "ai-review"
           }
         ]
       }

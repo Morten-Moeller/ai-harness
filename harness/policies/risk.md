@@ -33,9 +33,10 @@ Escalators raise the level by one step. They never lower it.
 2. The script applies the escalators and prints the level and the reasons.
 3. `/risk` runs the script, reads the diff and may raise the level with a written reason. It never
    lowers it. The reason goes into the PR body under `## Risiko` when `/implement` opens the PR,
-   or into a PR comment when `/risk` runs on an open PR.
+   or into that section of the PR body when `/risk` runs on an open PR.
 4. CI runs the same script, labels the PR `risk:low`, `risk:medium` or `risk:high` and uses the
-   result in `ai-review.yml` and `auto-merge.yml`. The label is informational; the jobs recompute.
+   result in `ai-review.yml` (`review-rules`) and `auto-merge.yml`. The label is informational; the
+   jobs recompute.
 
 ## Who may lower a level
 

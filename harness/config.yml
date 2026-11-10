@@ -4,7 +4,7 @@
 # The hooks and scripts parse this file with awk; nested maps deeper than one level, inline
 # lists and anchors are not supported.
 
-# Language of spec and ADR documents and of every output for people (PR comments, reports).
+# Language of spec and ADR documents and of every output for people (reports, PR bodies).
 doc_language: de
 
 # Branch that pull requests target and that risk-level.sh diffs against.

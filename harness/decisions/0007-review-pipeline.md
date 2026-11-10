@@ -1,6 +1,6 @@
 # 0007: One review trigger with a rule script, fresh agents and incremental runs
 
-Status: accepted, 2026-11-09
+Status: accepted, 2026-11-09. Changed by 0009: commit status, job review-rules.
 
 ## Context
 

@@ -1,6 +1,6 @@
 ---
 name: adr
-description: Write an architecture decision record into docs/adr/NNNN-<slug>.md (MADR), add its row to docs/adr/README.md and link it from the spec. Only on explicit request (/adr <title>) or when /implement stops because the ADR policy requires one.
+description: Write an architecture decision record into docs/adr/NNNN-<slug>.md (MADR), add its row to docs/adr/README.md and link it from the spec. Only on explicit request (/adr <title>), from /spec when the ADR policy requires one, or when /implement stops because one is missing.
 when_to_use: Load when the user runs /adr, or when /implement or /review report that harness/policies/adr.md requires an ADR that does not exist.
 argument-hint: <decision as a sentence> [--spec NNNN]
 disable-model-invocation: true
@@ -37,7 +37,8 @@ are unclear.
 
 ## 4. Finish
 
-Do not commit. `accepted` is set by a person in the PR that merges the ADR.
+Do not commit. `accepted` is the person's decision: from `/spec`, its approval question accepts
+the ADR together with the spec; otherwise the person accepts it in the session or in the PR.
 
 Summary: path, the decision in one sentence, what it supersedes or changes, and that acceptance is
 the person's step.

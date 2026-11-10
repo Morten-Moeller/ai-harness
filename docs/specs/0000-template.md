@@ -56,10 +56,29 @@ Stufe: <low | medium | high>
 Begründung: ...
 ADR nötig: <ja, Nr. | nein, weil ...>
 
+## Umsetzung
+
+<!-- Der Plan, den die Freigabe der Spec mit freigibt (G1). /implement hält nur an, wenn es
+     davon abweichen muss: höhere Risikostufe, Dateien oder Contracts außerhalb dieser Liste. -->
+
+Dateien:
+
+- `<pfad>`: <neu | ändern>, <was>
+
+Schritte:
+
+1. ...
+
+Tests:
+
+| Kriterium | Test |
+|---|---|
+| A1 | `<testdatei>`: <Fall> / Browser: <Bildschirm> |
+
 ## Offene Fragen
 
-<!-- Fragen, die vor der Freigabe eine Person beantwortet.
-     Beantwortete Fragen wandern in die Entscheidungstabelle in README.md. -->
+<!-- Fragen, die vor der Freigabe eine Person beantwortet. /spec stellt sie zusammen mit der
+     Freigabefrage. Beantwortete Fragen wandern in die Entscheidungstabelle in README.md. -->
 
 - [ ] ...
 

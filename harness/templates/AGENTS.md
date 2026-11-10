@@ -13,7 +13,9 @@ workflow, the gates and the policies in `harness/` apply to every change.
 - Every change starts from a spec in `docs/specs/` with status `approved`. No spec, no code.
   Skill `/spec`. Details: `harness/workflow.md`.
 - Risk level and human gates: `harness/policies/risk.md`, `harness/policies/human-approval.md`.
-  Medium and high risk stop after the plan and wait for a person.
+  The person approves the spec with its plan in the session. For medium and high risk the
+  person's label on the pull request is the merge decision.
+- After every push to a pull request branch, run the skill `review` for it.
 - Architecture decisions go to `docs/adr/` when `harness/policies/adr.md` requires one.
   Skill `/adr`.
 - Domain terms come from `docs/domain/glossary.md`. Use them as written; propose new ones with

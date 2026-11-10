@@ -34,12 +34,18 @@ checks out the code, runs `.github/actions/setup` (project-owned: toolchain, cac
 install), then `make <gate>`. The check names are `gates (test)`, `gates (typecheck)` and so on;
 `harness/github/ruleset.json` lists them as required.
 
+A gate whose tool is missing on a developer machine prints `übersprungen` and passes there; in CI,
+where `CI=true` is set, it fails (`have` in `harness/gates.mk`, decision 0011). Use the same macro
+for tools in the project targets: `@if $(call have,<tool>,<gate>,<install hint>); then ...; fi`.
+
 ## Default tools for sast and deps
 
 Both defaults are stack-neutral and read the repository as files. They need no build.
 
 - **Semgrep** (`semgrep --config auto --error`): rules by detected language. Add project rules under
-  `.semgrep/` and reference them in the Makefile.
+  `.semgrep/` and reference them in the Makefile. The `auto` rule set changes over time, so a new
+  rule can fail a PR that changed nothing related. For pnpm it requires in `pnpm-workspace.yaml`:
+  `minimumReleaseAge: 10080`, `blockExoticSubdeps: true` and `trustPolicy: no-downgrade`.
 - **gitleaks** (`gitleaks detect --no-banner --redact`): secrets in the history and the tree. A
   `.gitleaks.toml` allowlist is project-owned and reviewed like code.
 - **OSV-Scanner** (`osv-scanner scan --recursive .`): lock files of every ecosystem against the OSV

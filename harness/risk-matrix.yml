@@ -90,6 +90,16 @@ dependency_manifests:
   - "requirements*.txt"
   - "Cargo.toml"
   - "Cargo.lock"
+  - "pom.xml"
+  - "**/pom.xml"
+  - "build.gradle*"
+  - "**/build.gradle*"
+  - "settings.gradle*"
+  - "**/settings.gradle*"
+  - "gradle.lockfile"
+  - "**/gradle.lockfile"
+  - "**/gradle/wrapper/gradle-wrapper.properties"
+  - "**/.mvn/wrapper/maven-wrapper.properties"
 
 keywords:
   - "password"

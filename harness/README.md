@@ -10,13 +10,14 @@ AI Development Harness
 │
 ├── Workflow                  harness/workflow.md
 │   ├── Spec → Implementation → Verification
-│   ├── Human Gates G0–G3
+│   ├── Human Gates G0–G3, decided at two points: spec approval and label
 │   └── Risk Assessment       harness/policies/risk.md, harness/risk-matrix.yml
 │
 ├── Skills / Agents           .claude/skills/, .claude/agents/
 │   ├── /spec  /adr  /domain  /contract
 │   ├── /risk  /implement  /verify
 │   └── /review  rule check + code, security, architecture review by level   harness/review.md
+│                result: commit status ai-review, findings in the session
 │
 ├── Quality Gates             harness/quality-gates.md, Makefile, .github/workflows/quality-gates.yml
 │   ├── test  typecheck  lint
@@ -43,17 +44,16 @@ Project Context
 
 ## How the pieces connect
 
-1. A person or an agent writes a spec with `/spec`. A person sets its status to `approved`
-   (gate G0).
-2. `/implement` reads the spec, runs the risk assessment, checks the ADR policy, plans (gate G1 for
-   medium and high risk), writes code and tests, runs `make check`, opens a pull request.
-3. CI runs the quality gates, computes the risk level and labels the PR. The developer runs
-   `/review <PR>` in the session: a rule script first, then reviewer agents for the reviews the
-   level requires (code, from medium security, for high architecture), incremental after the first
-   run. CI checks the rules again and that the comments exist for the head commit. `/verify` walks
-   the acceptance criteria and writes the evidence.
-4. Low risk with green gates and no blocking findings merges automatically. Medium and high risk
-   wait for a person (gate G2, and G3 for high).
+1. `/spec <topic>` asks, writes the spec with its implementation plan and ends with one question:
+   approve and implement, approve only, or change. The answer of the person is gates G0 and G1.
+2. `implement` follows the plan: code and tests, `make check`, a review of the branch with fixes
+   for blocking findings, push, pull request, the commit status `ai-review`, waiting for CI. It
+   stops only when the change leaves the plan.
+3. CI runs the quality gates, computes the risk level, labels the PR and runs the rule check again
+   (`review-rules`). The session reviews every later push of its own. `/verify` walks the
+   acceptance criteria and writes the evidence into the PR body.
+4. Low risk with green checks merges automatically. Medium and high risk merge automatically after
+   the person reads the PR and sets the label `human-approved` (gate G2, and G3 for high).
 
 ## Harness-owned and project-owned files
 
@@ -80,13 +80,18 @@ cd /path/to/new-project
 # 2. fill .github/actions/setup/action.yml with the toolchain setup
 # 3. fill project-rules/*.md and docs/domain/glossary.md
 # 4. review harness/config.yml and harness/risk-matrix.yml
-# 5. set the GitHub side: harness/scripts/setup-repo.sh
 ```
 
+`bootstrap.sh` copies the template with its dotfiles (`.claude/`, `.github/`) into an empty
+folder. Copy by hand loses them. Options: `--source-paths frontend/src,backend/src/main` writes
+`source_paths` of `harness/config.yml`; `--github owner/name` runs `setup-repo.sh` at the end.
+
 `setup-repo.sh` creates the labels, enables auto-merge on the repository and imports the branch
-ruleset. No secret is needed: the review skills run in the session. Optional: `claude setup-token`
-and `gh secret set CLAUDE_CODE_OAUTH_TOKEN` let CI run the review skills itself (works with a
-Claude subscription); `AUTOMERGE_TOKEN` (a PAT) lets auto-merge work on Dependabot PRs.
+ruleset. Rulesets need a public repository or GitHub Pro; without one the script says so, and
+`auto-merge.yml` does not enable auto-merge on a branch without required checks. No secret is
+needed: the reviews run in the session. Optional: `claude setup-token` and
+`gh secret set CLAUDE_CODE_OAUTH_TOKEN` let CI run `/review` itself (works with a Claude
+subscription); `AUTOMERGE_TOKEN` (a PAT) lets auto-merge work on Dependabot PRs.
 
 ## Updating a project to a newer harness
 
@@ -103,27 +108,38 @@ harness versions are listed in `harness/CHANGELOG.md` of the harness repository.
 
 | Rule | Enforced by |
 |---|---|
-| Agents do not edit `AGENTS.md`, `CLAUDE.md`, the policies, the risk matrix, the config | `permissions.deny` `Edit(...)` rules in `.claude/settings.json` |
-| Agents do not merge, approve, force-push or set labels | `permissions.deny` `Bash(...)` rules, including `gh api *labels*` |
+| Agents do not edit `AGENTS.md`, `CLAUDE.md`, the policies, the risk matrix, the config, the hooks | `permissions.deny` `Edit(...)` rules in `.claude/settings.json`; the guard hook for shell writes |
+| Agents do not merge, approve, force-push, push to the default branch, set labels or write commit statuses (except `review-status.sh publish` after a saved review) | the PreToolUse hook `.claude/hooks/guard-bash.sh` and `permissions.deny` `Bash(...)` rules |
 | A change passes every gate | `make check` locally, `quality-gates.yml` as required checks |
-| Every PR passes the rule check and has a code review without blocking findings | `review-code` check in `ai-review.yml`: `review-rules.sh` and the comment of `/review` |
+| Every PR passes the rule check | `review-rules` check in `ai-review.yml`, the script from the base branch |
+| Every PR has a review without blocking findings | the commit status `ai-review` of `/review`, required by the ruleset |
 | Medium and high risk need a person | `human-gate` job in `auto-merge.yml` as a required check: label `human-approved` or an approving review |
+| A check cannot be faked with a commit status of the same name | the ruleset pins every Actions check to the GitHub Actions app (`integration_id` 15368) |
 | Control files need a human review | `.github/CODEOWNERS` |
 
-Known gap: the `Edit(...)` rules cover the file-editing tools. A shell command such as `sed -i` or a
-redirect can still write a protected file. CODEOWNERS and the branch ruleset are the second line.
-Report an agent that uses the shell to change a control file; it is a policy violation.
+Known gap: the guard hook matches patterns. A script, an interpreter or a call with the token of
+`gh` can still reach the API or a protected file. The human gate checks who set the label;
+CODEOWNERS and the branch ruleset are the second line. Report an agent that works around the
+guard; it is a policy violation.
 
 ## The harness repository itself
 
 The harness repository has no specs of its own, because `docs/` is the template for projects. A
 decision record in `harness/decisions/` takes the place of the spec and the ADR; the rule check
 accepts it. Its `.claude/settings.json` allows agents to edit the policies, the risk matrix and
-the config, so the harness can be developed with agents; `AGENTS.md`, `CLAUDE.md`,
-`auto-merge.yml` and the settings stay denied.
+the config, `human-gate.sh`, `auto-merge.yml` and the hooks, so the harness can be developed with
+agents; `AGENTS.md`, `CLAUDE.md` and the settings stay denied. Every change to these files is high
+risk, so the label of a person covers it. Sync the settings after a change to the template:
+
+```bash
+jq '.permissions.deny -= ["Edit(./harness/policies/**)", "Edit(./harness/risk-matrix.yml)",
+  "Edit(./harness/config.yml)", "Edit(./harness/scripts/human-gate.sh)",
+  "Edit(./.github/workflows/auto-merge.yml)", "Edit(./.claude/hooks/**)"]' \
+  harness/templates/settings.json > .claude/settings.json
+```
 
 ## Language
 
 Instructions for agents (this directory, `.claude/`, `.github/`) are written in simplified technical
-English. Output for people (pull request comments, reports, spec and ADR documents) uses the
+English. Output for people (reports in the session, PR bodies, spec and ADR documents) uses the
 language in `harness/config.yml` (`doc_language`).

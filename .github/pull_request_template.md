@@ -14,15 +14,14 @@ docs/specs/NNNN-<slug>.md
 <!-- docs/adr/NNNN-<slug>.md oder: keines nötig, weil <Bedingung aus harness/policies/adr.md
      trifft nicht zu>. -->
 
-## Plan
-
-<!-- Bei medium/high: der freigegebene Plan (G1). Bei low: die Schritte in drei Zeilen. -->
-
 ## Akzeptanzkriterien
 
-| Kriterium | Nachweis |
-|---|---|
-| A1 | Test `<pfad>` / `/verify` im Browser |
+<!-- Der Plan steht in der Spec (## Umsetzung) und ist mit ihr freigegeben. /verify ergänzt die
+     Spalte Ergebnis und die Zeile Geprüft. -->
+
+| Kriterium | Nachweis | Ergebnis |
+|---|---|---|
+| A1 | Test `<pfad>` / `/verify` im Browser | offen |
 
 ## Gate-Änderung
 
