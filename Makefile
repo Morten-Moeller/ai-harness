@@ -14,11 +14,8 @@ test: ## Script tests (plain bash, no bats needed)
 typecheck: ## Syntax of every shell script, every JSON file and every workflow
 	@for f in $(SHELL_SCRIPTS); do bash -n "$$f" || exit 1; done
 	@for f in $(JSON_FILES); do jq empty "$$f" || { echo "invalid JSON: $$f"; exit 1; }; done
-	@command -v actionlint >/dev/null 2>&1 || { echo "make typecheck: actionlint not installed. https://github.com/rhysd/actionlint#installation"; exit 1; }
-	actionlint $(WORKFLOWS)
+	@if $(call have,actionlint,typecheck,https://github.com/rhysd/actionlint#installation); then actionlint $(WORKFLOWS); fi
 
 lint: ## shellcheck and markdownlint
-	@command -v shellcheck >/dev/null 2>&1 || { echo "make lint: shellcheck not installed. https://github.com/koalaman/shellcheck#installing"; exit 1; }
-	shellcheck -x $(SHELL_SCRIPTS)
-	@command -v markdownlint-cli2 >/dev/null 2>&1 || { echo "make lint: markdownlint-cli2 not installed. npm i -g markdownlint-cli2"; exit 1; }
-	markdownlint-cli2 "**/*.md" "#node_modules"
+	@if $(call have,shellcheck,lint,https://github.com/koalaman/shellcheck#installing); then shellcheck -x $(SHELL_SCRIPTS); fi
+	@if $(call have,markdownlint-cli2,lint,npm i -g markdownlint-cli2); then markdownlint-cli2 "**/*.md" "#node_modules"; fi

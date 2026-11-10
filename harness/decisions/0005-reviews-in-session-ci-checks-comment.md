@@ -1,6 +1,6 @@
 # 0005: Review skills run in the session; CI checks their comments
 
-Status: accepted, 2026-11-09
+Status: superseded by 0009 (commit status instead of comments), 2026-11-10.
 
 ## Context
 

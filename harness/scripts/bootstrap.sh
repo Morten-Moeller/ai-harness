@@ -2,15 +2,20 @@
 # Creates a new project from the harness template.
 #
 # Usage:
-#   bootstrap.sh <target-dir> --name <project> [--owner <github-login>] [--doc-language de] [--no-git]
-#   bootstrap.sh --in-place --name <project> [--owner <github-login>]   (inside a "Use this template" checkout)
+#   bootstrap.sh <target-dir> --name <project> [--owner <github-login>] [--doc-language de]
+#                [--source-paths <dir,dir>] [--github <owner/name>] [--no-git]
+#   bootstrap.sh --in-place --name <project> [--owner <github-login>] [--source-paths <dir,dir>]
+#                (inside a "Use this template" checkout)
 #
-# Copies the template, applies harness/templates/* (Makefile, AGENTS.md, README.md, settings.json,
-# setup action), replaces {{PROJECT_NAME}} and {{PROJECT_OWNER}}, removes the files that belong
-# to the harness repository only, writes HARNESS_VERSION and initialises git.
+# Copies the template with its dotfiles into an empty folder, applies harness/templates/*
+# (Makefile, AGENTS.md, README.md, settings.json, setup action), replaces {{PROJECT_NAME}} and
+# {{PROJECT_OWNER}}, removes the files that belong to the harness repository only, writes
+# HARNESS_VERSION and initialises git. --source-paths writes source_paths of harness/config.yml.
+# --github adds the remote, commits, pushes the default branch to the existing (empty) GitHub
+# repository and runs setup-repo.sh.
 set -euo pipefail
 
-usage() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; }
 
 HARNESS=$(cd "$(dirname "$0")/../.." && pwd)
 TARGET=""
@@ -19,6 +24,8 @@ OWNER=""
 DOC_LANGUAGE=""
 IN_PLACE=0
 NO_GIT=0
+SOURCE_PATHS=""
+GITHUB=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -26,6 +33,8 @@ while [ $# -gt 0 ]; do
     --owner) OWNER="$2"; shift 2 ;;
     --doc-language) DOC_LANGUAGE="$2"; shift 2 ;;
     --in-place) IN_PLACE=1; shift ;;
+    --source-paths) SOURCE_PATHS="$2"; shift 2 ;;
+    --github) GITHUB="$2"; shift 2 ;;
     --no-git) NO_GIT=1; shift ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
@@ -34,6 +43,13 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$NAME" ] || { echo "--name is required" >&2; usage >&2; exit 2; }
+if [ -n "$GITHUB" ]; then
+  [[ "$GITHUB" =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]] || { echo "--github must be owner/name" >&2; exit 2; }
+  { [ "$NO_GIT" = 0 ] && [ "$IN_PLACE" = 0 ]; } || { echo "--github needs a new target directory with git" >&2; exit 2; }
+fi
+if [ -n "$SOURCE_PATHS" ]; then
+  [[ "$SOURCE_PATHS" =~ ^[A-Za-z0-9._/-]+(,[A-Za-z0-9._/-]+)*$ ]] || { echo "--source-paths must be a comma-separated list of directories" >&2; exit 2; }
+fi
 if [ "$IN_PLACE" = 1 ]; then
   TARGET="$HARNESS"
 else
@@ -53,6 +69,7 @@ fi
 if [ "$IN_PLACE" = 0 ]; then
   rsync -a \
     --exclude '.git/' \
+    --exclude '.DS_Store' \
     --exclude 'harness/decisions/' \
     --exclude 'harness/CHANGELOG.md' \
     --exclude 'harness/scripts/tests/' \
@@ -84,6 +101,13 @@ if [ -n "$DOC_LANGUAGE" ]; then
   sed -i.bak -e "s/^doc_language: .*/doc_language: $DOC_LANGUAGE/" "$TARGET/harness/config.yml" && rm -f "$TARGET/harness/config.yml.bak"
 fi
 sed -i.bak -e "/^auto_merge_allowlist:/,/^[a-z]/ s/\"Morten-Moeller\"/\"$OWNER\"/" "$TARGET/harness/config.yml" && rm -f "$TARGET/harness/config.yml.bak"
+if [ -n "$SOURCE_PATHS" ]; then
+  awk -v paths="$SOURCE_PATHS" '
+    /^source_paths:/ { print; n = split(paths, p, ","); for (i = 1; i <= n; i++) print "  - " p[i]; skip = 1; next }
+    skip && /^[ \t]*-/ { next }
+    { skip = 0; print }
+  ' "$TARGET/harness/config.yml" > "$TARGET/harness/config.yml.new" && mv "$TARGET/harness/config.yml.new" "$TARGET/harness/config.yml"
+fi
 
 if [ "$IN_PLACE" = 1 ]; then
   rm -rf "$TARGET/harness/decisions" "$TARGET/harness/templates" "$TARGET/harness/scripts/tests" \
@@ -97,6 +121,14 @@ if [ "$NO_GIT" = 0 ] && [ "$IN_PLACE" = 0 ] && [ ! -d "$TARGET/.git" ]; then
   git -C "$TARGET" init -q -b "${default_branch:-main}"
 fi
 
+if [ -n "$GITHUB" ]; then
+  git -C "$TARGET" remote add origin "git@github.com:$GITHUB.git"
+  git -C "$TARGET" add -A
+  git -C "$TARGET" commit -q -m "chore: bootstrap from ai-harness $(cat "$HARNESS/HARNESS_VERSION")"
+  git -C "$TARGET" push -q -u origin HEAD
+  (cd "$TARGET" && harness/scripts/setup-repo.sh --repo "$GITHUB")
+fi
+
 cat <<MSG
 Project $NAME created in $TARGET (harness $(cat "$HARNESS/HARNESS_VERSION")).
 
@@ -105,5 +137,7 @@ Next steps:
   2. Fill .github/actions/setup/action.yml with the toolchain
   3. Fill project-rules/*.md and docs/domain/glossary.md
   4. Review harness/config.yml and harness/risk-matrix.yml
-  5. Create the GitHub repository, push, then: harness/scripts/setup-repo.sh
 MSG
+if [ -z "$GITHUB" ]; then
+  echo "  5. Create the GitHub repository, push, then: harness/scripts/setup-repo.sh"
+fi

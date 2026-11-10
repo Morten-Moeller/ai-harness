@@ -47,6 +47,8 @@ check "dependabot patch on manifests is low" low "$(level --files-from "$(files 
 check "dependabot minor on manifests is low" low "$(level --files-from "$(files go.mod go.sum)" --dependabot version-update:semver-minor)"
 check "dependabot major stays medium" medium "$(level --files-from "$(files package.json)" --dependabot version-update:semver-major)"
 check "dependabot patch with a source file is medium" medium "$(level --files-from "$(files package.json src/a.ts)" --dependabot version-update:semver-patch)"
+check "maven manifest is a dependency manifest" low "$(level --files-from "$(files backend/pom.xml)" --dependabot version-update:semver-minor)"
+check "gradle wrapper is a dependency manifest" low "$(level --files-from "$(files gradle/wrapper/gradle-wrapper.properties build.gradle.kts)" --dependabot version-update:semver-patch)"
 check "manifest with contract is high" high "$(level --files-from "$(files package.json contracts/x.yaml)")"
 
 # Escalators
@@ -139,6 +141,19 @@ check "bootstrap drops the templates" "no" "$([ -d "$target/harness/templates" ]
 check "bootstrap uses the template settings" "yes" "$(grep -q 'harness/policies' "$target/.claude/settings.json" && echo yes || echo no)"
 check "bootstrap writes the version" "$(cat "$ROOT/HARNESS_VERSION")" "$(cat "$target/HARNESS_VERSION")"
 check "bootstrapped make test fails on purpose" "no" "$(make -C "$target" test >/dev/null 2>&1 && echo yes || echo no)"
+check "bootstrap copies the dotfiles" "yes" "$([ -f "$target/.claude/hooks/guard-bash.sh" ] && [ -f "$target/.github/workflows/ai-review.yml" ] && echo yes || echo no)"
+check "bootstrap registers the guard hook" "yes" "$(jq -e '.hooks.PreToolUse[0].hooks[0].command | test("guard-bash")' "$target/.claude/settings.json" >/dev/null && echo yes || echo no)"
+check "bootstrap keeps the default source paths" "  - src" "$(awk '/^source_paths:/ { getline; print; exit }' "$target/harness/config.yml")"
+src_copy="$TMP/src-copy"
+mkdir -p "$src_copy"
+rsync -a --exclude .git "$ROOT/" "$src_copy/"
+touch "$src_copy/.DS_Store" "$src_copy/harness/.DS_Store"
+target2="$TMP/bootstrap-paths"
+"$src_copy/harness/scripts/bootstrap.sh" "$target2" --name demo2 --owner someone --no-git --source-paths frontend/src,backend/src/main >/dev/null
+check "bootstrap skips .DS_Store" "" "$(find "$target2" -name .DS_Store)"
+check "bootstrap writes the source paths" "$(printf '  - frontend/src\n  - backend/src/main')" "$(awk '/^source_paths:/ { f = 1; next } f && /^[ \t]*-/ { print; next } f { exit }' "$target2/harness/config.yml")"
+check "bootstrap keeps the key after the source paths" "yes" "$(grep -q '^contracts_generate_target:' "$target2/harness/config.yml" && echo yes || echo no)"
+check "bootstrap rejects a bad --github" "2" "$("$ROOT/harness/scripts/bootstrap.sh" "$TMP/x" --name x --github 'not a repo' >/dev/null 2>&1; echo $?)"
 check "bootstrapped make help works" "yes" "$(make -C "$target" help 2>/dev/null | grep -q 'sast' && echo yes || echo no)"
 
 # Update from the harness into the bootstrapped project
@@ -334,6 +349,37 @@ git -C "$GR" init -q -b main
 check "guard: bare push on the default branch" "deny" "$(guard 'git push')"
 git -C "$GR" checkout -q -b feat/x
 check "guard: bare push on a feature branch" "allow" "$(guard 'git push')"
+
+# Review status (harness/scripts/review-status.sh)
+RS="$ROOT/harness/scripts/review-status.sh"
+c1=1111111111111111111111111111111111111111
+c2=2222222222222222222222222222222222222222
+c3=3333333333333333333333333333333333333333
+SR="$TMP/status-repo"
+mkdir -p "$SR" "$TMP/bin"
+git -C "$SR" init -q
+printf '# no header\n' > "$TMP/no-header.md"
+(cd "$SR" && "$RS" save --sha "$c1" --file "$TMP/no-header.md" >/dev/null 2>&1)
+check "status: save rejects a result without header" "2" "$?"
+printf '<!-- ai-review state=failure level=medium reviews=code,security blocking=1 notes=2 -->\n\n1. a.ts:3\n' > "$TMP/result.md"
+(cd "$SR" && "$RS" save --sha "$c1" --file "$TMP/result.md" >/dev/null)
+check "status: load returns the saved result" "1. a.ts:3" "$(cd "$SR" && "$RS" load --sha "$c1" | tail -1)"
+(cd "$SR" && "$RS" load --sha "$c3" >/dev/null 2>&1)
+check "status: load without a result exits 1" "1" "$?"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$@" > "%s"\n' "$TMP/gh-args" > "$TMP/bin/gh"
+chmod +x "$TMP/bin/gh"
+(cd "$SR" && PATH="$TMP/bin:$PATH" "$RS" publish --sha "$c1" --repo o/r >/dev/null)
+check "status: publish sets the state from the header" "state=failure" "$(grep '^state=' "$TMP/gh-args")"
+check "status: publish uses the context ai-review" "context=ai-review" "$(grep '^context=' "$TMP/gh-args")"
+check "status: publish describes the reviews" "description=Code, Sicherheit: 1 blockierend, 2 Hinweise" "$(grep '^description=' "$TMP/gh-args")"
+printf '%s\n' "$c1" "$c2" "$c3" > "$TMP/commits"
+check "status: last finds the newest commit with a saved result" "$c1" "$(cd "$SR" && "$RS" last --commits-from "$TMP/commits")"
+(cd "$SR" && "$RS" save --sha "$c2" --file "$TMP/result.md" >/dev/null)
+check "status: last prefers the newer commit" "$c2" "$(cd "$SR" && "$RS" last --commits-from "$TMP/commits")"
+printf '%s\n' "$c3" > "$TMP/commits3"
+check "status: last prints nothing without a saved result" "" "$(cd "$SR" && "$RS" last --commits-from "$TMP/commits3")"
+(cd "$SR" && PATH="$TMP/bin:$PATH" "$RS" publish --sha "$c1" --repo o/r --note "übernommen von 2222222" >/dev/null)
+check "status: publish puts the note first" "description=übernommen von 2222222; Code, Sicherheit: 1 blockierend, 2 Hinweise" "$(grep '^description=' "$TMP/gh-args")"
 
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ]

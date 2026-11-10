@@ -1,6 +1,6 @@
 # 0003: Low-risk pull requests merge automatically
 
-Status: accepted, 2026-11-09
+Status: accepted, 2026-11-09. Changed by 0010: medium and high risk merge after the label.
 
 ## Context
 

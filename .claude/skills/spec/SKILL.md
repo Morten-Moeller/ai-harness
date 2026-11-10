@@ -1,6 +1,6 @@
 ---
 name: spec
-description: Write the spec for one change into docs/specs/NNNN-<slug>.md from the template, with testable acceptance criteria, a risk proposal and the ADR check, and add its row to docs/specs/README.md. Only on explicit request (/spec <topic>).
+description: Write the spec for one change into docs/specs/NNNN-<slug>.md from the template, with testable acceptance criteria, the implementation plan, a risk proposal and the ADR check, ask the open questions together with the approval, and on approval commit it on the feature branch and continue with implement. Only on explicit request (/spec <topic>).
 when_to_use: Load when the user runs /spec or names a change that has no spec yet and wants one written. Do not start it on your own.
 argument-hint: <topic or one sentence>
 disable-model-invocation: true
@@ -8,8 +8,9 @@ disable-model-invocation: true
 
 # Spec
 
-Stage 1 of `harness/workflow.md`. Output: one spec file with status `draft` and one row in the
-status table. The approval (`status: approved`) is set by a person, never by this skill.
+Stage 1 of `harness/workflow.md`. Output: one spec with its plan, approved by the person in this
+session (gates G0 and G1), committed on the feature branch. With "Freigeben und umsetzen" the
+skill continues with `implement`.
 
 ## 1. Read
 
@@ -20,44 +21,66 @@ status table. The approval (`status: approved`) is set by a person, never by thi
   that already covers the topic: report it and stop.
 - `doc_language` in `harness/config.yml`. The document is written in that language; the template
   headings are German and are translated when the language differs.
+- The code the change touches, enough to plan files and tests.
 
 ## 2. Ask
 
-Before writing, ask the person with `AskUserQuestion`, at most five questions in one call:
+Before writing, ask the person with `AskUserQuestion`, at most four questions in one call:
 who the change is for and what they can do afterwards, what is out of scope, which screens or
 endpoints change, which contracts or other systems are touched, which constraints hold (deadline,
-compatibility, data). Skip a question when the argument answers it. Unanswered questions go to
-`## Offene Fragen`; the skill does not guess.
+compatibility, data). Skip a question when the argument or the code answers it. Questions left
+open go to `## Offene Fragen`; the skill does not guess.
 
 ## 3. Write
 
 1. Number: the highest `NNNN` in `docs/specs/` plus one, `0001` when there is none. Slug: lower
    case ASCII, hyphens, at most 40 characters. Path `docs/specs/NNNN-<slug>.md`.
 2. Copy `docs/specs/0000-template.md` and fill every section. Frontmatter `id`, `title`,
-   `status: draft`, `risk`, `adrs: []`, `owner` (the person from the question or `TBD`), `created`
-   (today).
+   `status: draft`, `risk`, `adrs: []`, `owner` (`git config user.name`), `created` (today).
 3. Acceptance criteria: `A1..An`, each one checkable by a test, a call or a screen. A criterion
    that names a screen, a button or a text is checked in the browser by `/verify`; say which. No
    criterion of the form "works correctly".
 4. Terms: use the glossary as written. A term that is missing goes to `## Begriffe` with a
    definition and a note "neu, mit /domain ins Glossar".
-5. Risk: list the paths the implementation will touch, write them to a temp file in the scratchpad
-   and run `harness/scripts/risk-level.sh --files-from <file> --format text`. Write the level,
-   the reasons and the gates that apply (`harness/policies/human-approval.md`) into `## Risiko`.
-6. ADR: walk the list in `harness/policies/adr.md`. Write `ADR nötig: ja, <reason>` or
-   `nein, weil <reason>`. Do not write the ADR here; that is `/adr`.
-7. Verification plan: `make check`, the test files or areas that the criteria map to
+5. `## Umsetzung`: the files to create or change, the steps in order, one test per criterion
+   (file and case, or the screen for `/verify`), contracts to regenerate.
+6. Risk: write the files of `## Umsetzung` to a scratchpad file and run
+   `harness/scripts/risk-level.sh --files-from <file> --format text`. Write the level, the reasons
+   and the gates that apply (`harness/policies/human-approval.md`) into `## Risiko`.
+7. ADR: walk the list in `harness/policies/adr.md`. Write `ADR nötig: ja, <reason>` or
+   `nein, weil <reason>`. When one is needed, write it now with the steps of
+   `.claude/skills/adr/SKILL.md` (status `proposed`); the approval below accepts it.
+8. Verification plan: `make check`, the test files or areas that the criteria map to
    (`project-rules/testing.md`), the screens for the browser walk or `keiner`.
+9. Row in `docs/specs/README.md`:
+   `| NNNN | <title> | <risk> | draft | – | <today> | <open questions count or –> |`.
 
-## 4. Row
+## 4. Approve
 
-Append to the table in `docs/specs/README.md`:
-`| NNNN | <title> | <risk> | draft | – | <today> | <open questions count or –> |`.
+Print a short summary: goal, criteria, files of the plan, risk level and gates, ADR. Then one
+`AskUserQuestion` call with the open questions of `## Offene Fragen` (at most three) and, as the
+last question, the approval:
 
-## 5. Finish
+- `Freigeben und umsetzen`: approve, then continue with `implement`.
+- `Nur freigeben`: approve and stop.
+- `Ändern`: the person names the change; edit the spec and ask again.
 
-Do not commit. The person reads the spec, answers the open questions, and commits it with
-`status: approved` in the frontmatter and the row.
+More than three open questions: ask them first, then the approval. An open question without an
+answer blocks the approval; it stays in the spec and the skill stops.
 
-Summary to the user: path, risk level, whether an ADR is required, the open questions, and the
-sentence that G0 (approval) is theirs. No other text.
+On approval:
+
+1. `git fetch -q origin`. Branch `<type>/<NNNN>-<slug>` from `origin/<default_branch>`
+   (`harness/config.yml`): `git switch -c <branch> origin/<default_branch>`. `<type>` is `feat`,
+   `fix`, `refactor`, `docs` or `chore`. The new files move with the switch.
+2. `status: approved` in the frontmatter and the row; `Stand` today; `Notiz`
+   `freigegeben in der Session`. Answers to open questions go to the table `Entscheidungen` in
+   `docs/specs/README.md` with the person as `Wer`, and out of `## Offene Fragen`.
+3. An ADR written in step 3: `Status: accepted` and the row in `docs/adr/README.md`.
+4. Commit the spec, the row and the ADR: `docs(specs): <NNNN> freigegeben`, body
+   `Freigabe in der Session durch <git user.name>, <date>.` and the attribution line from the
+   session.
+5. `Freigeben und umsetzen`: start the skill `implement` with `<NNNN>`.
+
+Summary for `Nur freigeben`: path, branch, risk level, and that `/implement <NNNN>` starts the
+implementation.

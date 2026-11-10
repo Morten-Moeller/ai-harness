@@ -2,6 +2,50 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.3.0 (2026-11-10)
+
+Fewer interruptions: two decisions per feature (spec approval, label), no review comments.
+Decisions 0009, 0010, 0011.
+
+Manual steps after `update.sh`:
+
+- Run `harness/scripts/setup-repo.sh` from the update branch before its merge. The ruleset now
+  requires `review-rules` and `ai-review` instead of `review-code`, and pins the Actions checks to
+  the GitHub Actions app. Without the new ruleset the update PR waits for `review-code`, which no
+  longer exists.
+- Copy the Maven and Gradle entries of `dependency_manifests` into `harness/risk-matrix.yml` when
+  the project uses them; `update.sh` shows them in the diff of the matrix.
+- `AGENTS.md`: the line "Medium and high risk stop after the plan and wait for a person" becomes
+  "The person approves the spec with its plan in the session. For medium and high risk the
+  person's label on the pull request is the merge decision.", plus the line "After every push to a
+  pull request branch, run the skill `review` for it." (`harness/templates/AGENTS.md`).
+- Specs in `draft`: add the section `## Umsetzung` before the approval.
+
+Changes:
+
+- `/review` sets the commit status `ai-review` (`harness/scripts/review-status.sh`) and reports
+  the findings in the session; no PR comments. Results are kept in `.git/ai-harness/review/`.
+  Without a PR number it reviews the local branch before the push.
+- `ai-review.yml` keeps one job for the rule check, `review-rules`, which also runs on PR body
+  edits, and sets `ai-review` for Dependabot patch and minor updates. `check-review-comment.sh` is
+  gone.
+- `/spec` writes the implementation plan into the spec (`## Umsetzung`), asks the open questions
+  together with the approval, and on approval commits the spec on the feature branch and
+  continues with `implement`. G1 is approved with the spec.
+- `implement` runs up to a reviewed pull request: gates, review and fixes before the push, PR with
+  evidence per criterion, status, CI watch and fixes. It stops only when the change leaves the plan.
+- `auto-merge.yml` enables auto-merge for medium and high risk when `human-gate` passes, so the
+  label is the merge decision, and never on a branch without required status checks.
+- `/verify` and `/risk` write into the PR body instead of comments.
+- A PreToolUse hook (`.claude/hooks/guard-bash.sh`) guards Bash: merge, reviews, labels, rulesets,
+  secrets, foreign commit statuses, force pushes, pushes to the default branch, `setup-repo.sh`,
+  `update.sh` and shell writes to protected paths. The deny rule for `gh pr edit` is gone, so the
+  agent writes PR title and body.
+- Local gates skip a missing tool with `übersprungen`; CI still fails (`have` in `harness/gates.mk`).
+- `bootstrap.sh`: `--source-paths`, `--github owner/name`, no `.DS_Store`. `setup-repo.sh` says
+  when the plan lacks rulesets or auto-merge and exits 1.
+- Risk matrix: Maven and Gradle files count as dependency manifests.
+
 ## 0.2.1 (2026-11-09)
 
 Manual steps after `update.sh`:
