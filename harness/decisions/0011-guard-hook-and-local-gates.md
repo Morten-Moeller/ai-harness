@@ -33,5 +33,6 @@ installed.
 
 - The agent writes and corrects PR title and body itself.
 - The hook is a guard against mistakes, not a security boundary: an agent with the person's
-  `gh` token can reach the API in ways no pattern lists. The human gate checks who set the label.
+  `gh` token can reach the API in ways no pattern lists, and it can write a result file for
+  `review-status.sh publish` itself. The human gate checks who set the label.
 - A gate skipped locally can fail in CI; `implement` waits for CI and fixes such failures.

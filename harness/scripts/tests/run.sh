@@ -326,6 +326,10 @@ deny|git -C /repo push origin main
 deny|N=5; gh api -X PUT repos/o/r/pulls/$N/merge
 deny|gh api -X PATCH repos/o/r/issues/5 --input body.json
 deny|gh api repos/o/r/issues/5 -f state=closed
+deny|gh api repos/o/r/statuses/abc -fstate=success -fcontext=ai-review
+deny|gh api -XPOST repos/o/r/statuses/abc
+deny|gh api -X post repos/o/r/statuses/abc
+deny|gh api -X POST repos/o/r/statuses/abc -X GET
 deny|gh auth token
 deny|gh secret set X
 deny|gh repo edit --enable-auto-merge
@@ -369,6 +373,7 @@ for tool in bash cat awk sed tr grep git env; do ln -s "$(command -v "$tool")" "
 nojq() { printf '%s' "$1" | jq -Rs '{tool_name: "Bash", tool_input: {command: .}}' > "$TMP/nojq.json"; PATH="$TMP/nojq" CLAUDE_PROJECT_DIR="$GR" bash "$GUARD" < "$TMP/nojq.json" | grep -o '"permissionDecision":"deny"' || echo allow; }
 check "guard: without jq gh is blocked" '"permissionDecision":"deny"' "$(nojq 'gh pr merge 5')"
 check "guard: without jq other commands pass" "allow" "$(nojq 'ls -la')"
+check "guard: without jq a tab does not hide git" '"permissionDecision":"deny"' "$(nojq "$(printf 'git\tpush origin main')")"
 git -C "$GR" init -q -b main
 check "guard: bare push on the default branch" "deny" "$(guard 'git push')"
 git -C "$GR" checkout -q -b feat/x

@@ -14,7 +14,7 @@ ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 input=$(cat)
 if ! command -v jq >/dev/null 2>&1; then
   case "$input" in
-    *gh\ *|*git\ *|*api.github.com*|*settings.json*|*AGENTS.md*)
+    *gh\ *|*git\ *|*'gh\t'*|*'git\t'*|*api.github.com*|*settings.json*|*AGENTS.md*)
       printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Harness guard: jq is not installed, so gh, git and protected files are blocked. Ask the person to install jq."}}\n'
       exit 0 ;;
   esac
@@ -82,8 +82,10 @@ while IFS= read -r seg; do
     -e 's/(^|[^A-Za-z0-9_./-])git(( (-C|-c|--git-dir|--work-tree|--namespace)( |=)[^ ]+| --no-pager| -P)+)/\1git/')
   [ -n "${seg// /}" ] || continue
   writes=0
-  [[ $seg =~ [[:space:]](-X|--method)[[:space:]=]*[\"\']?(POST|PATCH|PUT|DELETE) || $seg =~ [[:space:]](-f|-F|--field|--raw-field|--input)([[:space:]=]|$) ]] && writes=1
-  [[ $seg =~ [[:space:]](-X|--method)[[:space:]=]*[\"\']?GET([[:space:]\"\']|$) ]] && writes=0
+  method_write=0
+  [[ $seg =~ [[:space:]](-X|--method)[[:space:]=]*[\"\']?([Pp][Oo][Ss][Tt]|[Pp][Aa][Tt][Cc][Hh]|[Pp][Uu][Tt]|[Dd][Ee][Ll][Ee][Tt][Ee]) ]] && method_write=1
+  [[ $method_write = 1 || $seg =~ [[:space:]](-[A-Za-z]*[fF]|--field|--raw-field|--input) ]] && writes=1
+  [[ $method_write = 0 && $seg =~ [[:space:]](-X|--method)[[:space:]=]*[\"\']?[Gg][Ee][Tt]([[:space:]\"\']|$) ]] && writes=0
 
   [[ $seg =~ ${S}gh[[:space:]]+pr[[:space:]]+merge${W} ]] && deny "Merging is for people and auto-merge.yml (harness/policies/auto-merge.md)."
   [[ $seg =~ ${S}gh[[:space:]]+pr[[:space:]]+review${W} ]] && deny "Pull request reviews are for people (harness/policies/human-approval.md)."
