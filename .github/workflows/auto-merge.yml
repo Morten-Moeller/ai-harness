@@ -1,15 +1,17 @@
 name: Merge policy
 
-# Two jobs, both required by harness/github/ruleset.json:
-#   human-gate   passes for low risk at once; for medium and high when a person set the label
-#                human-approved after the last push, or another person approved the head commit.
-#                Logic: harness/scripts/human-gate.sh, decision 0006.
+# Two jobs:
+#   human-gate   required check. Passes for low risk at once; for medium and high when a person set
+#                the label human-approved after the last push, or another person approved the head
+#                commit. Logic: harness/scripts/human-gate.sh, decisions 0006 and 0010.
 #   auto-merge   enables GitHub auto-merge when every condition of harness/policies/auto-merge.md
-#                holds, and disables it otherwise. GitHub merges when all required checks pass.
+#                holds, and disables it otherwise: low risk on its own, medium and high risk when
+#                human-gate passed, so the label is the merge decision. GitHub merges when all
+#                required checks pass.
 # Configuration, risk matrix and scripts come from the base branch, so a pull request cannot change
 # the rules it is judged by. A file that does not exist on the base branch yet is taken from the
 # pull request.
-# Agents must not edit this file (.claude/settings.json deny rule, CODEOWNERS).
+# In a project agents must not edit this file (.claude/settings.json deny rule, CODEOWNERS).
 
 on:
   pull_request:
@@ -89,7 +91,7 @@ jobs:
   auto-merge:
     name: auto-merge
     needs: human-gate
-    if: ${{ always() && github.event_name == 'pull_request' }}
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -103,6 +105,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           LEVEL: ${{ needs.human-gate.outputs.level }}
           DOCS_ONLY: ${{ needs.human-gate.outputs.docs_only }}
+          HUMAN_GATE: ${{ needs.human-gate.result }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
           DRAFT: ${{ github.event.pull_request.draft }}
           BASE: ${{ github.event.pull_request.base.ref }}
@@ -115,14 +118,26 @@ jobs:
           default_branch=$(awk '$1 == "default_branch:" { print $2; exit }' "$config")
           allow=$(awk '/^auto_merge_allowlist:/ { f=1; next } f && /^[ \t]*-/ { s=$0; sub(/^[ \t]*-[ \t]*/, "", s); gsub(/"/, "", s); print s; next } f && !/^[ \t]*-/ { f=0 }' "$config")
           [ "$enabled" = "true" ] || reason="auto_merge_enabled is not true"
-          [ -n "$reason" ] || [ "$LEVEL" = "low" ] || reason="risk level is ${LEVEL:-unknown}"
           [ -n "$reason" ] || [ "$DRAFT" != "true" ] || reason="draft"
           [ -n "$reason" ] || [ "$BASE" = "$default_branch" ] || reason="base is $BASE, not $default_branch"
-          case ",$LABELS," in *,needs-human,*) [ -n "$reason" ] || reason="label needs-human" ;; esac
           if [ -z "$reason" ]; then
-            if ! printf '%s\n' "$allow" | grep -Fxq "$AUTHOR" && [ "$DOCS_ONLY" != "true" ]; then
-              reason="author $AUTHOR not on the allowlist and change is not docs-only"
-            fi
+            checks=$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/$BASE" \
+              --jq '[.[] | select(.type == "required_status_checks")] | length' 2>/dev/null || echo 0)
+            [ "${checks:-0}" -gt 0 ] || reason="$BASE has no required status checks (run harness/scripts/setup-repo.sh)"
+          fi
+          if [ -z "$reason" ]; then
+            case "$LEVEL" in
+              low)
+                case ",$LABELS," in *,needs-human,*) reason="label needs-human" ;; esac
+                if [ -z "$reason" ] && ! printf '%s\n' "$allow" | grep -Fxq "$AUTHOR" && [ "$DOCS_ONLY" != "true" ]; then
+                  reason="author $AUTHOR not on the allowlist and change is not docs-only"
+                fi
+                ;;
+              medium|high)
+                [ "$HUMAN_GATE" = "success" ] || reason="risk level $LEVEL waits for the human gate (label after the last push, or an approval)"
+                ;;
+              *) reason="risk level is ${LEVEL:-unknown}" ;;
+            esac
           fi
           if [ -z "$reason" ]; then
             echo "Conditions met: enabling auto-merge (squash)."
