@@ -19,15 +19,14 @@ permissions:
   statuses: write
   id-token: write
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
   review-rules:
     name: review-rules
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-rules-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -92,6 +91,9 @@ jobs:
     name: review
     if: ${{ !github.event.pull_request.draft && github.event.action != 'edited' }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     steps:
       - id: token
         env:
@@ -115,4 +117,4 @@ jobs:
           prompt: "/review ${{ github.event.pull_request.number }}"
           claude_args: >-
             --max-turns 80
-            --allowedTools "Read,Write,Grep,Glob,Skill,Agent,Bash(gh pr view*),Bash(gh pr diff*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(git fetch*),Bash(git rev-list*),Bash(git merge-base*),Bash(harness/scripts/risk-level.sh*),Bash(harness/scripts/review-rules.sh*),Bash(harness/scripts/review-status.sh*)"
+            --allowedTools "Read,Write,Grep,Glob,Skill,Agent,Bash(gh pr view*),Bash(gh pr diff*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(git fetch*),Bash(git rev-list*),Bash(git merge-base*),Bash(harness/scripts/risk-level.sh*),Bash(harness/scripts/review-rules.sh*),Bash(harness/scripts/review-status.sh publish*),Bash(harness/scripts/review-status.sh save*),Bash(harness/scripts/review-status.sh load*),Bash(harness/scripts/review-status.sh last*)"

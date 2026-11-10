@@ -1,6 +1,6 @@
 # 0009: The review result is a commit status, the findings stay in the session
 
-Status: accepted, 2026-11-10. Supersedes the comment part of 0005 and 0007.
+Status: accepted, 2026-11-10. Changes 0005 and 0007.
 
 ## Context
 

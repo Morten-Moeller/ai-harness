@@ -38,6 +38,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+if [ -n "$REPO" ] && ! [[ "$REPO" =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]]; then echo "--repo must be owner/name" >&2; exit 2; fi
+
 need_sha() { [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "--sha must be a full commit SHA" >&2; exit 2; }; }
 repo() { if [ -n "$REPO" ]; then echo "$REPO"; else gh repo view --json nameWithOwner -q .nameWithOwner; fi; }
 state_dir() {

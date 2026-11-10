@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # PreToolUse hook for Bash (harness/decisions/0011). Denies what only a person or CI may do:
-# merge, PR reviews, labels, rulesets, branch protection, repository settings, secrets, commit
-# statuses other than ai-review, force pushes, pushes to the default branch, setup-repo.sh and
-# update.sh, and shell writes to the paths of the Edit(...) deny rules in .claude/settings.json.
+# merge, PR reviews, labels, rulesets, branch protection, repository settings, secrets, direct
+# commit status writes (only review-status.sh publish after a saved review), force pushes, pushes
+# to the default branch, setup-repo.sh and update.sh, and shell writes to the paths of the
+# Edit(...) deny rules in .claude/settings.json. Without jq it blocks every gh and git command.
 # A guard against mistakes, not a security boundary: harness/scripts/human-gate.sh checks who set
 # the label. Heredoc bodies are not matched, so text that names a command can be written.
 #
@@ -12,7 +13,11 @@ set -u
 ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 input=$(cat)
 if ! command -v jq >/dev/null 2>&1; then
-  printf '{"systemMessage":"guard-bash.sh: jq is not installed, the Bash guard is inactive."}\n'
+  case "$input" in
+    *gh\ *|*git\ *|*api.github.com*|*settings.json*|*AGENTS.md*)
+      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Harness guard: jq is not installed, so gh, git and protected files are blocked. Ask the person to install jq."}}\n'
+      exit 0 ;;
+  esac
   exit 0
 fi
 cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
@@ -72,8 +77,13 @@ P
 writer='(^|[[:space:]])(sed[[:space:]]+(-[A-Za-z]*i|--in-place)|perl[[:space:]]+-[A-Za-z]*i|tee|cp|mv|rm|truncate|rsync|ln|install|dd|patch|git[[:space:]]+(apply|checkout|restore|rm|mv))([[:space:]]|$)'
 
 while IFS= read -r seg; do
-  seg=$(printf '%s' "$seg" | tr -s ' \t' '  ')
+  seg=$(printf '%s' "$seg" | tr -s ' \t' '  ' | sed -E \
+    -e 's/(^|[^A-Za-z0-9_./-])gh(( (-R|--repo)( |=)[^ ]+)+)/\1gh/' \
+    -e 's/(^|[^A-Za-z0-9_./-])git(( (-C|-c|--git-dir|--work-tree|--namespace)( |=)[^ ]+| --no-pager| -P)+)/\1git/')
   [ -n "${seg// /}" ] || continue
+  writes=0
+  [[ $seg =~ [[:space:]](-X|--method)[[:space:]=]*[\"\']?(POST|PATCH|PUT|DELETE) || $seg =~ [[:space:]](-f|-F|--field|--raw-field|--input)([[:space:]=]|$) ]] && writes=1
+  [[ $seg =~ [[:space:]](-X|--method)[[:space:]=]*[\"\']?GET([[:space:]\"\']|$) ]] && writes=0
 
   [[ $seg =~ ${S}gh[[:space:]]+pr[[:space:]]+merge${W} ]] && deny "Merging is for people and auto-merge.yml (harness/policies/auto-merge.md)."
   [[ $seg =~ ${S}gh[[:space:]]+pr[[:space:]]+review${W} ]] && deny "Pull request reviews are for people (harness/policies/human-approval.md)."
@@ -85,14 +95,13 @@ while IFS= read -r seg; do
   if [[ $seg =~ $API ]]; then
     [[ $seg =~ labels ]] && deny "Labels are set by people and CI only."
     [[ $seg =~ graphql ]] && deny "gh api graphql can change labels and reviews. Use gh pr commands or REST reads."
-    [[ $seg =~ (rulesets|/protection|/actions/(secrets|variables|permissions)|/hooks|/keys|/collaborators|/pulls/[0-9]+/(merge|reviews)|/merges) ]] && deny "Rulesets, branch protection, repository settings, merges and reviews are for people."
-    if [[ $seg =~ statuses ]]; then
-      contexts=$(printf '%s\n' "$seg" | grep -o 'context=[^[:space:]]*' | wc -l | tr -d ' ')
-      if ! [[ $seg =~ context=[\"\']?ai-review[\"\']?([[:space:]]|$) ]] || [ "$contexts" != 1 ]; then
-        deny "Commit statuses other than ai-review come from CI. Use harness/scripts/review-status.sh."
-      fi
+    [[ $seg =~ (rulesets|/protection|/actions/(secrets|variables|permissions)|/hooks|/keys|/collaborators|/pulls/[^/[:space:]]+/(merge|reviews)|/merges) ]] && deny "Rulesets, branch protection, repository settings, merges and reviews are for people."
+    if [ "$writes" = 1 ]; then
+      [[ $seg =~ statuses ]] && deny "Commit statuses are set by CI and by harness/scripts/review-status.sh publish after a saved review."
+      [[ $seg =~ /issues/[^/[:space:]]+([[:space:]\"\']|$) ]] && deny "Issue and PR metadata (labels, state, assignees) are changed with gh pr commands, not gh api."
     fi
   fi
+  [[ $seg =~ review-status\.sh[[:space:]]+set${W} ]] && deny "review-status.sh set is for CI. Run the skill review; it saves the result and runs review-status.sh publish."
   [[ $seg =~ (^|[[:space:]/])setup-repo\.sh${W} ]] && deny "Labels, repository settings and the ruleset are set by a person: ! harness/scripts/setup-repo.sh"
   [[ $seg =~ (^|[[:space:]/])update\.sh${W} ]] && deny "update.sh overwrites .claude/settings.json; a person runs it: ! harness/scripts/update.sh <harness-dir>"
   [[ $seg =~ human-gate\.sh.*--remove-stale ]] && deny "--remove-stale removes labels; only CI runs it."

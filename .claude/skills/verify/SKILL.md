@@ -46,7 +46,8 @@ No criterion names a screen: the body says `Kein Browser-Test: <Grund>`.
 ## 4. Automated checks
 
 Run `make check` and the affected tests. Keep the output of every failing check. Never weaken a
-check or a test to make it pass.
+check or a test to make it pass. A gate that prints `übersprungen` did not run; the line
+`Automatisch` names it, and the CI result of that gate counts.
 
 ## 5. Browser walk
 

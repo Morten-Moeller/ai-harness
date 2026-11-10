@@ -17,8 +17,12 @@ installed.
 
 - A PreToolUse hook, `.claude/hooks/guard-bash.sh`, reads every Bash command and denies: merge,
   PR reviews, every label change, rulesets, branch protection, repository settings, secrets,
-  commit statuses other than `ai-review`, force pushes, pushes to the default branch, and shell
-  writes to the paths of the `Edit(...)` deny rules.
+  direct writes of commit statuses and issue metadata through `gh api`, `review-status.sh set`,
+  force pushes, pushes to the default branch, `setup-repo.sh`, `update.sh`, and shell writes to
+  the paths of the `Edit(...)` deny rules. Global options such as `git -C` or `gh -R` do not hide
+  a command. The session sets `ai-review` only with `review-status.sh publish`, which needs a
+  saved review result. Without `jq` the hook blocks every `gh` and `git` command.
+- In a project the hooks are denied for edits, like the settings.
 - The deny rule for `gh pr edit` goes; the other deny rules stay as a second layer.
 - A gate with a missing tool prints "übersprungen" and passes when `CI` is not set. In CI it
   fails as before. `implement` lists skipped gates in its summary.

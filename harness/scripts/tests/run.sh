@@ -317,7 +317,15 @@ deny|gh api graphql -f query=x
 deny|gh api -X PUT repos/o/r/rulesets/1 --input r.json
 deny|gh api -X PUT repos/o/r/pulls/5/merge
 deny|gh api repos/o/r/statuses/abc -f state=success -f context=human-gate
-deny|gh api repos/o/r/statuses/abc -f context=ai-review -f context=risk
+deny|gh api repos/o/r/statuses/abc -f state=success -f context=ai-review
+deny|harness/scripts/review-status.sh set --sha abc --state success --description x
+deny|gh -R o/r pr merge 5
+deny|gh --repo=o/r pr review 5 --approve
+deny|git -C . push --force origin feat/x
+deny|git -C /repo push origin main
+deny|N=5; gh api -X PUT repos/o/r/pulls/$N/merge
+deny|gh api -X PATCH repos/o/r/issues/5 --input body.json
+deny|gh api repos/o/r/issues/5 -f state=closed
 deny|gh auth token
 deny|gh secret set X
 deny|gh repo edit --enable-auto-merge
@@ -341,18 +349,26 @@ allow|gh pr edit 5 --title "feat: x" --body-file /tmp/body.md
 allow|gh pr create --title x --body-file b --base main
 allow|gh pr view 5 --json labels
 allow|gh api repos/o/r/pulls/5
-allow|gh api repos/o/r/statuses/abc -f state=success -f context=ai-review
+allow|gh api repos/o/r/commits/abc/statuses
+allow|gh api repos/o/r/issues/5/comments
+allow|gh api -X GET search/issues -f q=repo:o/r
+allow|gh api -X PATCH repos/o/r/pulls/5 --input body.json
 allow|git push -u origin feat/x
 allow|git push --follow-tags origin feat/main-fix
 allow|cat AGENTS.md 2>/dev/null
 allow|sed -i '' s/a/b/ harness/templates/AGENTS.md
 allow|git add AGENTS.md && git commit -F /tmp/msg
 allow|grep -n policies harness/policies/risk.md > /tmp/out
-allow|harness/scripts/review-status.sh set --sha abc --state success --description x
+allow|harness/scripts/review-status.sh publish --sha abc
 G
 check "guard: heredoc body is not matched" "allow" "$(guard "$(printf 'cat > doc.md <<'"'"'X'"'"'\ngh pr merge --auto runs in auto-merge.yml\nX\n')")"
 check "guard: python write to a protected path" "deny" "$(guard "$(printf 'python3 - <<X\nopen("AGENTS.md", "w").write("x")\nX\n')")"
 check "guard: commands after a heredoc are matched" "deny" "$(guard "$(printf 'cat > a <<X\ntext\nX\ngh pr merge 5\n')")"
+mkdir -p "$TMP/nojq"
+for tool in bash cat awk sed tr grep git env; do ln -s "$(command -v "$tool")" "$TMP/nojq/$tool"; done
+nojq() { printf '%s' "$1" | jq -Rs '{tool_name: "Bash", tool_input: {command: .}}' > "$TMP/nojq.json"; PATH="$TMP/nojq" CLAUDE_PROJECT_DIR="$GR" bash "$GUARD" < "$TMP/nojq.json" | grep -o '"permissionDecision":"deny"' || echo allow; }
+check "guard: without jq gh is blocked" '"permissionDecision":"deny"' "$(nojq 'gh pr merge 5')"
+check "guard: without jq other commands pass" "allow" "$(nojq 'ls -la')"
 git -C "$GR" init -q -b main
 check "guard: bare push on the default branch" "deny" "$(guard 'git push')"
 git -C "$GR" checkout -q -b feat/x
