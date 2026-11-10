@@ -146,17 +146,15 @@ fi
 
 # spec: every change starts from an approved spec (AGENTS.md, harness/workflow.md G0).
 if enabled spec && [ "$dep" = 0 ]; then
-  if [ -n "$spec_id" ]; then
-    if [ -z "$spec_file" ]; then
-      add spec "–" process ja "Spec $spec_id ist genannt, aber docs/specs/$spec_id-*.md fehlt."
-    else
-      status=$(head_show "$spec_file" | awk '/^---[ \t]*$/ { n++; next } n == 1 && /^status:/ { sub(/^status:[ \t]*/, ""); gsub(/"/, ""); print; exit }' || true)
-      case "$status" in
-        ""|draft) add spec "$spec_file" process ja "Spec hat Status '${status:-leer}'. G0 fehlt: eine Person setzt status: approved." ;;
-      esac
-    fi
+  if [ -n "$spec_file" ]; then
+    status=$(head_show "$spec_file" | awk '/^---[ \t]*$/ { n++; next } n == 1 && /^status:/ { sub(/^status:[ \t]*/, ""); gsub(/"/, ""); print; exit }' || true)
+    case "$status" in
+      ""|draft) add spec "$spec_file" process ja "Spec hat Status '${status:-leer}'. G0 fehlt: die Person gibt die Spec frei." ;;
+    esac
   elif [ -n "$decision" ]; then
     :
+  elif [ -n "$spec_id" ]; then
+    add spec "–" process ja "Spec $spec_id ist genannt, aber docs/specs/$spec_id-*.md fehlt."
   else
     b=ja
     [ "$LEVEL" = low ] && b=nein
@@ -254,7 +252,7 @@ if enabled generiert; then
   grep -vE '\.md$|^harness/scripts/review-rules\.sh$' "$TMP/files" | while IFS= read -r f; do
     top=$(head_show "$f" | head -10 || true)
     [ -n "$top" ] || continue
-    if printf '%s\n' "$top" | grep -qiE 'do not edit|@generated|code generated|auto-?generated|this file (is|was) generated'; then
+    if printf '%s\n' "$top" | grep -qE 'DO NOT EDIT' || printf '%s\n' "$top" | grep -qiE '@generated|code generated|auto-?generated|this file (is|was) generated'; then
       add generiert "$f" process nein "Generierte Datei geändert. Mit dem Generator erzeugen, nicht von Hand (contracts/README.md)."
     fi
   done || true
