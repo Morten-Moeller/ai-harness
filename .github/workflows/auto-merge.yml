@@ -1,6 +1,6 @@
 name: Merge policy
 
-# Two jobs:
+# Three jobs:
 #   human-gate   required check. Passes for low risk at once; for medium and high when a person set
 #                the label human-approved after the last push, or another person approved the head
 #                commit. Logic: harness/scripts/human-gate.sh, decisions 0006 and 0010.
@@ -8,8 +8,9 @@ name: Merge policy
 #                holds, and disables it otherwise: low risk on its own, medium and high risk when
 #                human-gate passed, so the label is the merge decision. GitHub merges when all
 #                required checks pass.
-#   delete-branch  deletes the head branch after a merge by github-actions. The repository setting
-#                "Automatically delete head branches" acts only on merges by a person.
+#   delete-branch  deletes the head branch after a merge by a bot (github-actions or the app of
+#                AUTOMERGE_TOKEN). The repository setting "Automatically delete head branches"
+#                acts only on merges by a person.
 # Configuration, risk matrix and scripts come from the base branch, so a pull request cannot change
 # the rules it is judged by. A file that does not exist on the base branch yet is taken from the
 # pull request.
@@ -154,9 +155,11 @@ jobs:
     name: delete-branch
     if: >-
       ${{ github.event.action == 'closed' && github.event.pull_request.merged
-      && github.event.pull_request.merged_by.login == 'github-actions[bot]'
+      && github.event.pull_request.merged_by.type != 'User'
       && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Delete the head branch
         env:

@@ -42,8 +42,9 @@ There are two paths: low risk without a person, medium and high risk after the p
 ## Merge method
 
 Squash merge. The PR title becomes the commit subject, so the title follows
-`<type>(<scope>): <summary>` and names the spec id. The branch is deleted after the merge
-(`setup-repo.sh` sets `--delete-branch-on-merge`).
+`<type>(<scope>): <summary>` and names the spec id. The branch is deleted after the merge:
+`setup-repo.sh` sets `--delete-branch-on-merge` for merges by a person, and the job
+`delete-branch` of `auto-merge.yml` deletes it after a merge by a bot.
 
 ## Audit
 

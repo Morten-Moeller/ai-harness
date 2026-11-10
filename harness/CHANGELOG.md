@@ -9,8 +9,9 @@ Changes:
 - `auto-merge.yml` deletes the head branch after a merge by `github-actions`; the repository
   setting "Automatically delete head branches" acts only on merges by a person.
 - The guard hook denies `bootstrap.sh --github`, because it runs `setup-repo.sh`.
-- `review-rules.sh` from 0.3.0 accepts a decision for a spec id in the title of a harness PR. CI
-  runs the rule script of the base branch, so the first PR on top of 0.3.0 gets the fix.
+- Note on 0.3.0: its fix of `review-rules.sh` (a decision stands in for a spec id in the title of
+  a harness PR) takes effect from the first PR after 0.3.0, because CI runs the rule script of the
+  base branch.
 
 ## 0.3.0 (2026-11-10)
 
