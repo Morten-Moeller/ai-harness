@@ -74,7 +74,11 @@ while IFS= read -r line || [ -n "$line" ]; do
   esac
   IFS=$'\t' read -r src dst <<<"$(resolve "$line")"
   if [ "$section" = remove ]; then
-    case "$src" in /*|*..*) echo "skip (not a project path): $src"; continue ;; esac
+    case "$src" in
+      /*|*..*) echo "skip (not a harness path): $src"; continue ;;
+      .claude/?*|.github/?*|.githooks/?*|harness/?*) ;;
+      *) echo "skip (not a harness path): $src"; continue ;;
+    esac
     if [ -e "$TARGET/$src" ]; then rm -rf "${TARGET:?}/$src"; echo "removed: $src"; fi
     continue
   fi

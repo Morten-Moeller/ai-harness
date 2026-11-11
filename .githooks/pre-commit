@@ -3,6 +3,6 @@
 # make setup points core.hooksPath to this directory, once per clone.
 set -e
 root=$(git rev-parse --show-toplevel)
-if make -C "$root" -n precommit >/dev/null 2>&1; then
+if grep -qE '^precommit[[:space:]]*:' "$root/Makefile" 2>/dev/null; then
   make -C "$root" --no-print-directory precommit
 fi

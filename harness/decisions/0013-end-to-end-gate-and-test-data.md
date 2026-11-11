@@ -34,4 +34,7 @@ a project whose tests start the application themselves can run the suite in CI a
 - A project with a self-starting suite gets its screen criteria checked on every pull request.
 - A project whose suite needs a running environment keeps `e2e_in_ci: false`; agents run the specs
   locally when the environment is up, and the summary names the ones that did not run.
+- The job reads `e2e_in_ci` from the pull request, like `drift` its target (0012). A pull request
+  that switches it off skips the suite; that change to `harness/config.yml` is high risk and waits
+  for the label.
 - The ruleset requires `gates (e2e)`; after `update.sh` a project runs `setup-repo.sh` once.

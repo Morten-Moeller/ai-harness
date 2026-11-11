@@ -15,7 +15,7 @@ target names; the project fills them with its tools.
 | `make deps` | known vulnerabilities in dependencies | `osv-scanner` over the lock files | optional additions |
 | `make drift` | committed generated files match their source | runs `contracts_generate_target` of `harness/config.yml`, passes when it is empty | the generator target |
 | `make check` | all of the above | fixed | no |
-| `make e2e` | user flows against the running application | stub that prints "keine End-to-End-Tests" and exits 0 | optional; in CI only with `e2e_in_ci: true` |
+| `make e2e` | user flows against the running application | stub that prints "no end-to-end tests configured" and exits 0 | optional; in CI only with `e2e_in_ci: true` |
 | `make precommit` | fast checks on staged files, run by `.githooks/pre-commit` | not defined | optional |
 
 The stubs fail on purpose. A project that has not filled a target cannot pass CI, so no gate is

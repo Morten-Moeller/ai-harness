@@ -20,8 +20,9 @@ Line endings were left to each checkout.
 - `project-rules/README.md` describes area skills with `paths:`.
 - `.githooks/pre-commit` (harness-owned) runs `make precommit` when the project defines it.
   `make setup` sets `core.hooksPath`; `bootstrap.sh` does it for the first clone. The guard hook
-  denies `--no-verify` and `git commit -n`.
-- `.gitattributes` in the template: LF for text, binary for images and fonts.
+  denies `--no-verify`, `git commit -n` and a `core.hooksPath` other than `.githooks`.
+- `.gitattributes` in the template: LF for text, binary for images and fonts. It is project-owned
+  (`[diff-only]`), because projects add their generated paths.
 
 ## Consequences
 

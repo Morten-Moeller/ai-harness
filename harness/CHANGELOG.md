@@ -23,6 +23,8 @@ Manual steps after `update.sh`:
 - `AGENTS.md`: the lines of `## Verification` and the test data line of
   `harness/templates/AGENTS.md`.
 - Every clone: `make setup` once, so the git hooks run.
+- `.gitattributes`: `update.sh` reports it as missing; copy it from the harness and keep the
+  project's own lines (generated paths).
 
 Changes:
 
@@ -41,7 +43,7 @@ Changes:
   and agents of the project; `[remove]` in `owned-paths.txt` deletes dropped harness paths.
 - `.githooks/pre-commit` runs `make precommit` when defined; `make setup` and `bootstrap.sh` set
   `core.hooksPath`. The guard hook denies `--no-verify` and `git commit -n`.
-- `.gitattributes`: LF for text files.
+- `.gitattributes` (project-owned, `[diff-only]`): LF for text files.
 - The settings template no longer denies edits of `harness/config.yml` and
   `harness/risk-matrix.yml`; both stay high risk, and the rule check in CI reads the config of the
   base branch (`review-rules.sh --config`).

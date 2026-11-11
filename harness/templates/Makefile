@@ -17,4 +17,4 @@ lint: ## Style and static rules
 	@echo "make lint: not configured. Fill this target in Makefile. See harness/quality-gates.md."; exit 1
 
 e2e: ## End-to-end tests of user flows (project-rules/testing.md)
-	@echo "make e2e: keine End-to-End-Tests konfiguriert. Siehe project-rules/testing.md."
+	@echo "make e2e: no end-to-end tests configured. See project-rules/testing.md."

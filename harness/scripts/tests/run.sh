@@ -181,12 +181,14 @@ echo "changed" >> "$target/.claude/skills/review/SKILL.md"
 mkdir -p "$target/.claude/skills/old-harness-skill"
 up_src="$TMP/update-src"
 rsync -a --exclude .git "$ROOT/" "$up_src/"
-printf '.claude/skills/old-harness-skill/\n' >> "$up_src/harness/owned-paths.txt"
+printf '.claude/skills/old-harness-skill/\nsrc/\n' >> "$up_src/harness/owned-paths.txt"
+mkdir -p "$target/src"
 "$up_src/harness/scripts/update.sh" "$up_src" --target "$target" >/dev/null
 check "update keeps a skill of the project" "yes" "$([ -f "$target/.claude/skills/orders-area/SKILL.md" ] && echo yes || echo no)"
 check "update keeps an agent of the project" "yes" "$([ -f "$target/.claude/agents/orders-reviewer.md" ] && echo yes || echo no)"
 check "update restores a harness skill" "no" "$(grep -q '^changed$' "$target/.claude/skills/review/SKILL.md" && echo yes || echo no)"
 check "update deletes a path under [remove]" "no" "$([ -d "$target/.claude/skills/old-harness-skill" ] && echo yes || echo no)"
+check "update never removes a project path" "yes" "$([ -d "$target/src" ] && echo yes || echo no)"
 
 # Human gate
 HG="$ROOT/harness/scripts/human-gate.sh"
@@ -353,7 +355,13 @@ deny|gh pr merge 5 --squash
 deny|git commit --no-verify -m x
 deny|git commit -n -m x
 deny|git push --no-verify origin feat/x
+deny|git commit -nm x
+deny|git -c core.hooksPath=/dev/null commit -m x
+deny|git config core.hooksPath /tmp/none
+allow|git config core.hooksPath .githooks
+allow|git config --get core.hooksPath
 allow|git commit -m x
+allow|git commit --amend --no-edit
 deny|cd /x && gh pr review 5 --approve
 deny|gh label create x
 deny|gh pr edit 5 --add-label human-approved
@@ -526,6 +534,9 @@ rm -f "$HK/ran.marker"
 printf 'other: ; @true\n' > "$HK/Makefile"
 hkgit add -A && hkgit commit -q -m two
 check "hook: no precommit target, no run" "no" "$([ -f "$HK/ran.marker" ] && echo yes || echo no)"
+printf 'include missing.mk\nprecommit: ; @true\n' > "$HK/Makefile"
+hkgit add -A
+check "hook: a broken Makefile stops the commit" "1" "$(hkgit commit -q -m broken >/dev/null 2>&1; echo $?)"
 printf 'precommit: ; @exit 1\n' > "$HK/Makefile"
 hkgit add -A
 check "hook: a failing precommit stops the commit" "1" "$(hkgit commit -q -m three >/dev/null 2>&1; echo $?)"

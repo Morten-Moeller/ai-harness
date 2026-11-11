@@ -4,7 +4,8 @@
 # harness skill and keeps the skills of the project. `src => dst` copies a file from the harness
 # path src to the project path dst. Lines starting with # are comments. Paths under [diff-only]
 # are shown as a diff and not overwritten, because the project owns them after the first copy.
-# Paths under [remove] were harness-owned and are deleted in the project.
+# Paths under [remove] were harness-owned and are deleted in the project; only paths under
+# .claude/, .github/, .githooks/ and harness/ are accepted.
 
 [copy]
 harness/README.md
@@ -28,6 +29,7 @@ harness/templates/settings.json => .claude/settings.json
 .github/pull_request_template.md
 
 [diff-only]
+.gitattributes
 harness/config.yml
 harness/risk-matrix.yml
 harness/templates/Makefile => Makefile
