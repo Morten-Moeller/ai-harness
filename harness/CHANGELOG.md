@@ -11,7 +11,10 @@ Manual steps after `update.sh`:
 - `AGENTS.md`: the line on the baseline under `## Workflow` (`harness/templates/AGENTS.md`).
 - `project-rules/testing.md` (project-owned): remove the general rules that are now in
   `harness/testing.md`, keep tools, commands, areas and test data; see the harness template.
-- Deviations of existing code that the project keeps: one ADR each, naming the rule number.
+- `docs/adr/0000-template.md` (project-owned): add the line `Ersetzt Grundregeln: <Nummern oder
+  "keine">` under `Spec:`, as in the harness template.
+- Deviations of existing code that the project keeps: one ADR each, with the rule numbers in that
+  line.
 
 Changes:
 
