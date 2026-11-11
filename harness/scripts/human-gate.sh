@@ -113,7 +113,7 @@ if [ "$need_verify" = 1 ]; then
   if [ -n "$STATUSES_JSON" ]; then
     cat "$STATUSES_JSON" > "$TMP/status.json"
   else
-    gh api "repos/$REPO/commits/$SHA/status" > "$TMP/status.json"
+    gh api "repos/$REPO/commits/$SHA/status?per_page=100" > "$TMP/status.json"
   fi
   verified=$(jq -r '[.statuses[]? | select(.context == "verified")] | first | .state // ""' "$TMP/status.json")
   case "$verified" in
