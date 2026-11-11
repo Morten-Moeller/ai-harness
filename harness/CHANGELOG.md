@@ -13,8 +13,9 @@ Manual steps:
   below 0.4.0 also the entries with `*` (`.claude/skills/*/`, `.claude/agents/*.md`). Instead of
   two runs, the script of the harness checkout can run once:
   `<harness>/harness/scripts/update.sh <harness> --target <project>`.
-- `harness/risk-matrix.yml` (project-owned, `update.sh` shows the diff): add `**/mvnw` and
-  `**/mvnw.cmd` under `dependency_manifests`.
+- Optional, for Maven projects: `harness/risk-matrix.yml` (project-owned, `update.sh` shows the
+  diff) adds `**/mvnw` and `**/mvnw.cmd` under `dependency_manifests`. Without them a Dependabot
+  update with a wrapper bump stays medium; nothing breaks.
 
 Changes:
 
