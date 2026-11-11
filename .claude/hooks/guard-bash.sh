@@ -107,6 +107,7 @@ while IFS= read -r seg; do
   fi
   [[ $seg =~ review-status\.sh[[:space:]]+set${W} ]] && deny "review-status.sh set is for CI. Run the skill review; it saves the result and runs review-status.sh publish."
   [[ $seg =~ (^|[[:space:]/])setup-repo\.sh${W} ]] && deny "Labels, repository settings and the ruleset are set by a person: ! harness/scripts/setup-repo.sh"
+  [[ $seg =~ (^|[[:space:]/])bootstrap\.sh[[:space:]].*--github ]] && deny "bootstrap.sh --github runs setup-repo.sh; a person runs it. Without --github the agent may bootstrap."
   [[ $seg =~ (^|[[:space:]/])update\.sh${W} ]] && deny "update.sh overwrites .claude/settings.json; a person runs it: ! harness/scripts/update.sh <harness-dir>"
   [[ $seg =~ human-gate\.sh.*--remove-stale ]] && deny "--remove-stale removes labels; only CI runs it."
   [[ $seg =~ api\.github\.com.*(labels|rulesets|protection|statuses|merge|reviews|graphql) ]] && deny "Use gh for the GitHub API; labels, rulesets, statuses, merges and reviews are not for agents."

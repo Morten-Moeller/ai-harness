@@ -50,6 +50,17 @@ Changes:
 - `/contract` adds the generator target and the config key in the same change when they are
   missing.
 
+## 0.3.1 (2026-11-10)
+
+Changes:
+
+- `auto-merge.yml` deletes the head branch after a merge by `github-actions`; the repository
+  setting "Automatically delete head branches" acts only on merges by a person.
+- The guard hook denies `bootstrap.sh --github`, because it runs `setup-repo.sh`.
+- Note on 0.3.0: its fix of `review-rules.sh` (a decision stands in for a spec id in the title of
+  a harness PR) takes effect from the first PR after 0.3.0, because CI runs the rule script of the
+  base branch.
+
 ## 0.3.0 (2026-11-10)
 
 Fewer interruptions: two decisions per feature (spec approval, label), no review comments.

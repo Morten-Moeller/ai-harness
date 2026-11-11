@@ -1,6 +1,6 @@
 name: Merge policy
 
-# Two jobs:
+# Three jobs:
 #   human-gate   required check. Passes for low risk at once; for medium and high when a person set
 #                the label human-approved after the last push, or another person approved the head
 #                commit. Logic: harness/scripts/human-gate.sh, decisions 0006 and 0010.
@@ -8,6 +8,9 @@ name: Merge policy
 #                holds, and disables it otherwise: low risk on its own, medium and high risk when
 #                human-gate passed, so the label is the merge decision. GitHub merges when all
 #                required checks pass.
+#   delete-branch  deletes the head branch after a merge by a bot (github-actions or the app of
+#                AUTOMERGE_TOKEN). The repository setting "Automatically delete head branches"
+#                acts only on merges by a person.
 # Configuration, risk matrix and scripts come from the base branch, so a pull request cannot change
 # the rules it is judged by. A file that does not exist on the base branch yet is taken from the
 # pull request.
@@ -15,7 +18,7 @@ name: Merge policy
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled, converted_to_draft]
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled, converted_to_draft, closed]
   pull_request_review:
     types: [submitted, dismissed]
 
@@ -32,6 +35,7 @@ concurrency:
 jobs:
   human-gate:
     name: human-gate
+    if: ${{ github.event.action != 'closed' }}
     runs-on: ubuntu-latest
     outputs:
       level: ${{ steps.level.outputs.level }}
@@ -91,7 +95,7 @@ jobs:
   auto-merge:
     name: auto-merge
     needs: human-gate
-    if: ${{ always() }}
+    if: ${{ always() && github.event.action != 'closed' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -145,4 +149,27 @@ jobs:
           else
             echo "Not enabling auto-merge: $reason"
             gh pr merge "$PR" --disable-auto 2>/dev/null || true
+          fi
+
+  delete-branch:
+    name: delete-branch
+    if: >-
+      ${{ github.event.action == 'closed' && github.event.pull_request.merged
+      && github.event.pull_request.merged_by.type != 'User'
+      && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete the head branch
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMERGE_TOKEN || github.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          DEFAULT: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$BRANCH" = "$DEFAULT" ]; then echo "Head branch is the default branch; not deleted."; exit 0; fi
+          if gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$BRANCH" --silent 2>"$RUNNER_TEMP/err"; then
+            echo "Deleted $BRANCH."
+          else
+            echo "Not deleted: $(head -1 "$RUNNER_TEMP/err")"
           fi

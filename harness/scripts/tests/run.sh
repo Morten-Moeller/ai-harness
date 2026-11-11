@@ -406,6 +406,7 @@ deny|cp /tmp/x harness/policies/risk.md
 deny|git checkout origin/main -- AGENTS.md
 deny|harness/scripts/setup-repo.sh
 deny|./harness/scripts/update.sh ../ai-harness
+deny|harness/scripts/bootstrap.sh ../demo --name demo --github o/demo
 deny|bash harness/scripts/human-gate.sh --level medium --pr 5 --remove-stale
 allow|gh pr edit 5 --title "feat: x" --body-file /tmp/body.md
 allow|gh pr create --title x --body-file b --base main
@@ -422,6 +423,7 @@ allow|sed -i '' s/a/b/ harness/templates/AGENTS.md
 allow|git add AGENTS.md && git commit -F /tmp/msg
 allow|grep -n policies harness/policies/risk.md > /tmp/out
 allow|harness/scripts/review-status.sh publish --sha abc
+allow|harness/scripts/bootstrap.sh ../demo --name demo --source-paths src
 G
 check "guard: heredoc body is not matched" "allow" "$(guard "$(printf 'cat > doc.md <<'"'"'X'"'"'\ngh pr merge --auto runs in auto-merge.yml\nX\n')")"
 check "guard: python write to a protected path" "deny" "$(guard "$(printf 'python3 - <<X\nopen("AGENTS.md", "w").write("x")\nX\n')")"
