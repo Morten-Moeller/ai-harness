@@ -2,6 +2,17 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.4.1 (2026-11-11)
+
+Decision 0016.
+
+Changes:
+
+- New `.github/workflows/branch-cleanup.yml`: every hour it deletes the head branch of a pull
+  request that a bot merged, when the branch still points to the merged commit. The job
+  `delete-branch` of 0.3.1 never ran (an event of `GITHUB_TOKEN` starts no workflow) and leaves
+  `auto-merge.yml` with its `closed` trigger.
+
 ## 0.4.0 (2026-11-11)
 
 Checks instead of prose: generated files against their source, optional end-to-end tests in CI,
