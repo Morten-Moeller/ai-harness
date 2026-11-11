@@ -40,6 +40,10 @@ human_approval_label: human-approved
 
 # Require an approving review by a second person: "" (never), "high", or "medium" (medium and high).
 second_reviewer_for: ""
+# Gate G3: the head commit needs the status verified, set by /verify, before the gate passes:
+# "high" (the default when the key is missing), "medium" (medium and high), or "" (never).
+# Pull requests by bots are exempt.
+verify_required_for: high
 
 # /review (harness/review.md): one combined agent run when the diff under review (the whole PR, or
 # the delta of an incremental run) changes at most this many lines.

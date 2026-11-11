@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
-# Human gate G2 (harness/policies/human-approval.md). Decides whether a pull request has the
-# review by a person that its risk level needs. auto-merge.yml runs the copy from the base branch,
-# so a pull request cannot change the rule it is judged by.
+# Human gates G3 and G2 (harness/policies/human-approval.md). Decides whether a pull request has the
+# verification and the review by a person that its risk level needs. auto-merge.yml runs the copy
+# from the base branch, so a pull request cannot change the rule it is judged by.
 #
 # Usage:
 #   human-gate.sh --level <low|medium|high> --pr <n> --sha <head sha> --author <login>
 #                 [--repo <owner/name>] [--config <file>] [--labels <a,b,...>]
-#                 [--reviews-json <file>] [--events-json <file>] [--pushed-at <iso time>]
-#                 [--permissions <login=permission,...>] [--remove-stale]
+#                 [--reviews-json <file>] [--events-json <file>] [--statuses-json <file>]
+#                 [--pushed-at <iso time>] [--permissions <login=permission,...>] [--remove-stale]
 #
 # Without --labels, the *-json options, --pushed-at and --permissions the data comes from the
-# GitHub API. An approval counts only from an account with the permission write, maintain or admin.
+# GitHub API. G3: for the levels in verify_required_for the head needs the commit status verified
+# = success; pull requests by bots are exempt. An approval counts only from an account with the
+# permission write, maintain or admin.
 # Exit 0: the gate passes. Exit 1: the gate fails; the output says why. Exit 2: usage error.
 set -euo pipefail
 
-usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 CONFIG="$ROOT/harness/config.yml"
@@ -27,6 +29,7 @@ LABELS=""
 LABELS_SET=0
 REVIEWS_JSON=""
 EVENTS_JSON=""
+STATUSES_JSON=""
 PUSHED_AT=""
 PERMISSIONS=""
 PERMISSIONS_SET=0
@@ -43,6 +46,7 @@ while [ $# -gt 0 ]; do
     --labels) LABELS="$2"; LABELS_SET=1; shift 2 ;;
     --reviews-json) REVIEWS_JSON="$2"; shift 2 ;;
     --events-json) EVENTS_JSON="$2"; shift 2 ;;
+    --statuses-json) STATUSES_JSON="$2"; shift 2 ;;
     --pushed-at) PUSHED_AT="$2"; shift 2 ;;
     --permissions) PERMISSIONS="$2"; PERMISSIONS_SET=1; shift 2 ;;
     --remove-stale) REMOVE_STALE=1; shift ;;
@@ -84,11 +88,39 @@ case "$second" in
   ""|high|medium) ;;
   *) fail "harness/config.yml: second_reviewer_for has the unknown value '$second'. Allowed: \"\", high, medium." ;;
 esac
+verify_for=$(cfg verify_required_for high)
+case "$verify_for" in
+  ""|high|medium) ;;
+  *) fail "harness/config.yml: verify_required_for has the unknown value '$verify_for'. Allowed: \"\", high, medium." ;;
+esac
 label=$(cfg human_approval_label human-approved)
 if [ -n "$label" ]; then
   if ! [[ "$label" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || [ "$label" = needs-human ]; then
     fail "harness/config.yml: human_approval_label '$label' is not allowed. Use a plain name such as human-approved."
   fi
+fi
+
+need_verify=0
+case "$verify_for" in
+  high) [ "$LEVEL" = high ] && need_verify=1 ;;
+  medium) need_verify=1 ;;
+esac
+if [ "$need_verify" = 1 ] && [[ "$AUTHOR" == *"[bot]" ]]; then
+  echo "Author $AUTHOR is a bot: G3 does not apply, CI is its check."
+  need_verify=0
+fi
+if [ "$need_verify" = 1 ]; then
+  if [ -n "$STATUSES_JSON" ]; then
+    cat "$STATUSES_JSON" > "$TMP/status.json"
+  else
+    gh api "repos/$REPO/commits/$SHA/status" > "$TMP/status.json"
+  fi
+  verified=$(jq -r '[.statuses[]? | select(.context == "verified")] | first | .state // ""' "$TMP/status.json")
+  case "$verified" in
+    success) echo "Risk $LEVEL: verified on commit $short (G3)." ;;
+    "") fail "Risk $LEVEL: commit $short has no status verified (G3). The session runs verify after its last push, or a person runs /verify $PR. Set the label after that push." ;;
+    *) fail "Risk $LEVEL: verify reports $verified on commit $short (G3): a criterion is not met or a check failed. The criteria table in the PR body names it." ;;
+  esac
 fi
 
 if [ -n "$REVIEWS_JSON" ]; then

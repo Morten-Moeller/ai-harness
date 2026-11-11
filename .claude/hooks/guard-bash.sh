@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # PreToolUse hook for Bash (harness/decisions/0011). Denies what only a person or CI may do:
 # merge, PR reviews, labels, rulesets, branch protection, repository settings, secrets, direct
-# commit status writes (only review-status.sh publish after a saved review), force pushes, pushes
+# commit status writes (only review-status.sh publish after a saved review and review-status.sh
+# verify after /verify, decision 0018), force pushes, pushes
 # to the default branch, skipped git hooks (--no-verify, decision 0015), setup-repo.sh and
 # update.sh, and shell writes to the paths of the Edit(...) deny rules in .claude/settings.json.
 # Without jq it blocks every gh and git command.
@@ -101,7 +102,7 @@ while IFS= read -r seg; do
     [[ $seg =~ graphql ]] && deny "gh api graphql can change labels and reviews. Use gh pr commands or REST reads."
     [[ $seg =~ (rulesets|/protection|/actions/(secrets|variables|permissions)|/hooks|/keys|/collaborators|/pulls/[^/[:space:]]+/(merge|reviews)|/merges) ]] && deny "Rulesets, branch protection, repository settings, merges and reviews are for people."
     if [ "$writes" = 1 ]; then
-      [[ $seg =~ statuses ]] && deny "Commit statuses are set by CI and by harness/scripts/review-status.sh publish after a saved review."
+      [[ $seg =~ statuses ]] && deny "Commit statuses are set by CI, by harness/scripts/review-status.sh publish after a saved review and by review-status.sh verify after /verify."
       [[ $seg =~ /issues/[^/[:space:]]+([[:space:]\"\']|$) ]] && deny "Issue and PR metadata (labels, state, assignees) are changed with gh pr commands, not gh api."
     fi
   fi

@@ -12,7 +12,7 @@
 # origin/<default_branch> from harness/config.yml. Exit 0 when a level was computed.
 set -euo pipefail
 
-usage() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 MATRIX="$ROOT/harness/risk-matrix.yml"

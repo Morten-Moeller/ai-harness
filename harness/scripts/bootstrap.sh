@@ -17,7 +17,7 @@
 # repository and runs setup-repo.sh.
 set -euo pipefail
 
-usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
 
 HARNESS=$(cd "$(dirname "$0")/../.." && pwd)
 TARGET=""
