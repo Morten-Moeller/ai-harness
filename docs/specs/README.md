@@ -5,8 +5,9 @@ nächste freie. Status und Gates: `harness/workflow.md`. Eine Zeile pro Spec; Sk
 ihre Zeile.
 
 Status: `draft` → `approved` (Freigabe einer Person, in der Session über `/spec` oder von Hand) →
-`in Arbeit` → `Review` → `fertig` → `done`. `blockiert` wartet auf eine Entscheidung, die Notiz
-nennt sie.
+`in Arbeit` → `Review` → `done`. `done` schreibt `verify` (bei low `implement`) vor dem Merge auf
+den PR-Branch; auf `main` steht es erst mit dem Merge. `blockiert` wartet auf eine Entscheidung,
+die Notiz nennt sie.
 
 | Spec | Titel | Risiko | Status | PR | Stand | Notiz |
 |---|---|---|---|---|---|---|

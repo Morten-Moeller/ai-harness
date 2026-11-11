@@ -139,6 +139,7 @@ Print `result.md` without its first line. Then one line with the next step:
 
 - `state=failure`: the blocking findings are fixed, then `/review` again.
 - level low: GitHub merges after the required checks.
-- level medium or high: the label `human-approved` after the person's own review merges the PR.
+- level medium or high: `verify` for the head (in this session, or `/verify <n>`), then the label
+  `human-approved` after the person's own review and the last push merges the PR.
 
 Inside `implement` return the findings to it and skip the next-step line.
