@@ -49,6 +49,7 @@ check "dependabot major stays medium" medium "$(level --files-from "$(files pack
 check "dependabot patch with a source file is medium" medium "$(level --files-from "$(files package.json src/a.ts)" --dependabot version-update:semver-patch)"
 check "maven manifest is a dependency manifest" low "$(level --files-from "$(files backend/pom.xml)" --dependabot version-update:semver-minor)"
 check "gradle wrapper is a dependency manifest" low "$(level --files-from "$(files gradle/wrapper/gradle-wrapper.properties build.gradle.kts)" --dependabot version-update:semver-patch)"
+check "maven wrapper scripts are dependency manifests" low "$(level --files-from "$(files backend/mvnw backend/mvnw.cmd backend/.mvn/wrapper/maven-wrapper.properties backend/pom.xml)" --dependabot version-update:semver-minor)"
 check "manifest with contract is high" high "$(level --files-from "$(files package.json contracts/x.yaml)")"
 
 # Escalators
@@ -505,6 +506,10 @@ check "drift: a changed generated file fails" "1" "$(drift changed)"
 check "drift: names the changed file" "  gen.txt" "$(grep '^  ' "$TMP/drift.out")"
 check "drift: leaves the new output in the working tree" "v2" "$(cat "$DR/gen.txt")"
 check "drift: a second run on the regenerated tree passes" "0" "$(drift changed)"
+drgit checkout -q -- gen.txt
+printf 'stale\n' > "$DR/gen.txt"
+check "drift: a stale uncommitted generated file fails" "1" "$(drift same)"
+check "drift: a regenerated file not committed yet passes locally" "0" "$(drift same)"
 drgit checkout -q -- gen.txt
 check "drift: a new generated file fails" "1" "$(drift added)"
 check "drift: names the new file" "  extra.txt" "$(grep '^  ' "$TMP/drift.out")"

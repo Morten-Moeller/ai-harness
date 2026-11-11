@@ -4,15 +4,17 @@ Versions follow semver. Breaking means: a project needs a manual step after `upd
 
 ## 0.5.1 (2026-11-11)
 
-Fixes `update.sh` on macOS.
+Fixes `update.sh` on macOS; the Maven wrapper scripts count as dependency manifests.
 
-Update from an older version:
+Manual steps:
 
 - A project below 0.5.1 runs `update.sh` twice. The first run still uses the old script of the
   project, the second the new one. The old script skips `harness/owned-paths.txt` on macOS, and
   below 0.4.0 also the entries with `*` (`.claude/skills/*/`, `.claude/agents/*.md`). Instead of
   two runs, the script of the harness checkout can run once:
   `<harness>/harness/scripts/update.sh <harness> --target <project>`.
+- `harness/risk-matrix.yml` (project-owned, `update.sh` shows the diff): add `**/mvnw` and
+  `**/mvnw.cmd` under `dependency_manifests`.
 
 Changes:
 
@@ -20,6 +22,10 @@ Changes:
   letter t and cut `harness/owned-paths.txt` to `owned-paths.tx`, so the file was never copied.
 - `human-gate.sh`: the message for a label from before the push says that the push time is the
   start of the first workflow run, a few seconds after the push.
+- `harness/risk-matrix.yml`: `**/mvnw` and `**/mvnw.cmd` are dependency manifests. A Dependabot
+  patch or minor update that also bumps the Maven wrapper stays low instead of medium.
+- `drift.sh`: the header and two tests state what a local run finds. A stale generated file in
+  the working tree fails; a regenerated file that is not committed yet passes, CI finds it.
 
 ## 0.5.0 (2026-11-11)
 

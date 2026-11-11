@@ -100,6 +100,8 @@ dependency_manifests:
   - "**/gradle.lockfile"
   - "**/gradle/wrapper/gradle-wrapper.properties"
   - "**/.mvn/wrapper/maven-wrapper.properties"
+  - "**/mvnw"
+  - "**/mvnw.cmd"
 
 keywords:
   - "password"
