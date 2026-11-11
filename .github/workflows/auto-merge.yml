@@ -28,8 +28,10 @@ permissions:
   issues: read
   pull-requests: write
 
+# The run for `closed` (delete-branch) has its own group, so a later event of the same PR does not
+# cancel it.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ github.event.action == 'closed' && 'closed' || 'open' }}
   cancel-in-progress: true
 
 jobs:
