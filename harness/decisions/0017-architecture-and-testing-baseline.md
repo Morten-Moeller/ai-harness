@@ -28,6 +28,10 @@ shape, end-to-end tests first, no mocks of own code) and checks reviews against 
   as blocking; the code review names the T rule of a test finding, and a test that only checks a
   mock is a finding.
 
+Not chosen: the rules only in the project templates (projects never get updates and can drop
+rules unseen); starter ADRs in `docs/adr/` (one file per rule, copied once, no updates either);
+no baseline (each project decides again).
+
 ## Consequences
 
 - A project starts with a complete set of decisions and records only its differences.

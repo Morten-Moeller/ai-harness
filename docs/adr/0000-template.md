@@ -3,6 +3,7 @@
 Status: proposed | accepted | superseded by NNNN | rejected
 Datum: YYYY-MM-DD
 Spec: <docs/specs/NNNN-slug.md oder "keine">
+Ersetzt Grundregeln: <A1.2, T1.3 aus harness/architecture.md und harness/testing.md, oder "keine">
 
 ## Kontext
 

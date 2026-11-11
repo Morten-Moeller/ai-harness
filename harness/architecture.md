@@ -2,8 +2,9 @@
 
 Decisions that hold in every project of this harness, so a project does not start from zero. They
 are stack-neutral; `project-rules/` adds the stack details. A project replaces a rule with an ADR in
-`docs/adr/` that names the rule number (`ersetzt A1.2`); without such an ADR the rule holds, and the
-architecture review reports a deviation as blocking (`harness/policies/adr.md`, decision 0017).
+`docs/adr/` that names the rule number in its line `Ersetzt Grundregeln:`; without such an ADR the
+rule holds, and the architecture review reports a deviation as blocking (`harness/policies/adr.md`,
+decision 0017).
 
 A rule that a tool can check becomes a check (`project-rules/README.md`, decision 0014).
 
@@ -20,7 +21,7 @@ A rule that a tool can check becomes a check (`project-rules/README.md`, decisio
 - A1.5 A module name states its responsibility. Never `util`, `common`, `helpers`, `misc`.
 - A1.6 Dependencies point one way: features use shared modules and platform code; platform code
   (technical infrastructure without business terms) uses no feature. Feature to feature goes
-  through a shared operation in the same transaction or a job for later work.
+  through a shared operation in the same transaction, or a job for later work (A3.4).
 - A1.7 One library per concern. A second library for the same concern needs an ADR.
 
 ## A2 API
@@ -43,8 +44,9 @@ A rule that a tool can check becomes a check (`project-rules/README.md`, decisio
   boundary, before the first database operation.
 - A3.2 Checks that need stored state run inside the transaction or inside the atomic statement.
 - A3.3 One request is at most one transaction. No external call and no slow I/O while it is open.
-- A3.4 Work after the commit (mail, jobs, events to other systems) is written to an outbox in the
-  same transaction and sent after it.
+- A3.4 Work after the commit (mail, later processing, events to other systems) is written as a
+  job or outbox row in the same transaction and runs after the commit. One such mechanism per
+  project.
 - A3.5 Data access code builds no HTTP errors; it returns typed results or errors, the boundary maps
   them.
 

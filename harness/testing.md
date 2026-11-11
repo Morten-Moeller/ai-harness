@@ -2,7 +2,8 @@
 
 Test rules that hold in every project of this harness. `project-rules/testing.md` names the tools,
 commands, areas and the test data command of the project. A project replaces a rule with an ADR
-that names the rule number (`ersetzt T1.3`); without such an ADR the rule holds (decision 0017).
+that names the rule number in its line `Ersetzt Grundregeln:`; without such an ADR the rule holds
+(decision 0017).
 
 ## T1 Levels
 
