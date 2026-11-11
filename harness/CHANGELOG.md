@@ -2,6 +2,40 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.6.0 (2026-11-11)
+
+Verification before the merge (decision 0018). `implement` runs `verify` for medium and high risk
+once CI passed, `verify` sets the commit status `verified`, and `human-gate` requires it for high
+risk (G3). The spec row is `done` before the merge, so no pull request after the merge is needed.
+
+Manual steps, all optional:
+
+- `harness/config.yml` (project-owned, `update.sh` shows the diff): the key `verify_required_for`
+  with its comment. Without it the default `high` applies: a high risk pull request needs the
+  status `verified` on its head before the label counts. `medium` extends it, `""` switches it off.
+- `docs/specs/README.md` (project-owned): the status line without `fertig`, as in the harness copy.
+  A row with `fertig` on the default branch becomes `done`.
+- A high risk pull request open during the update runs `verify` (`/verify <n>`) before the label.
+
+Changes:
+
+- `human-gate.sh` checks G3 before G2: for the levels in `verify_required_for` the head needs the
+  commit status `verified` = `success`; pull requests by bots are exempt. New option
+  `--statuses-json` for tests. `auto-merge.yml` gets `statuses: read`.
+- `review-status.sh verify --sha --state success|failure --description` sets the status
+  `verified`. The guard hook allows it; `set` stays for CI.
+- Skill `verify`: before the merge only (an open PR), started by `implement`, after a push of the
+  session or by `/verify <n>`. It writes the row as `done` with the PR number (or `in Arbeit`),
+  pushes it, runs `review` and sets `verified` on that head; the description names the checked
+  commit. Works without a spec and with a decision in the harness repository.
+- Skill `implement`: new step 9 `verify` for medium and high risk; low risk writes the row as
+  `done` with the PR number. The summary carries the verification.
+- Skill `review`: the next step for medium and high risk names `verify` before the label.
+- `harness/workflow.md`, `harness/policies/human-approval.md`, `harness/README.md`,
+  `docs/specs/README.md`: G3 as the status `verified`; the status `fertig` is gone.
+- The help of every script prints its header comment, read by awk instead of fixed line numbers.
+  Five scripts printed a line of code or cut the last lines of their header.
+
 ## 0.5.1 (2026-11-11)
 
 Fixes `update.sh` on macOS. The Maven wrapper counts as a dependency manifest and no longer trips

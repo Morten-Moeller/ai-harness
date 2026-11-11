@@ -213,7 +213,14 @@ check "update trims spaces and tabs around src => dst" "notes" "$(cat "$target/t
 HG="$ROOT/harness/scripts/human-gate.sh"
 SHA_A=1111111111111111111111111111111111111111
 SHA_B=2222222222222222222222222222222222222222
-gate_cfg() { printf 'human_approval_label: %s\nsecond_reviewer_for: %s\n' "$1" "$2" > "$TMP/gate.yml"; echo "$TMP/gate.yml"; }
+gate_cfg() {
+  printf 'human_approval_label: %s\nsecond_reviewer_for: %s\n' "$1" "$2" > "$TMP/gate.yml"
+  if [ $# -gt 2 ]; then printf 'verify_required_for: %s\n' "$3" >> "$TMP/gate.yml"; fi
+  echo "$TMP/gate.yml"
+}
+printf '{"state":"success","statuses":[{"context":"ai-review","state":"success"},{"context":"verified","state":"success"}]}\n' > "$TMP/verified-ok.json"
+printf '{"state":"failure","statuses":[{"context":"ai-review","state":"success"},{"context":"verified","state":"failure"}]}\n' > "$TMP/verified-failed.json"
+printf '{"state":"success","statuses":[{"context":"ai-review","state":"success"}]}\n' > "$TMP/verified-none.json"
 echo '[]' > "$TMP/no-reviews.json"
 printf '[{"commit_id":"%s","user":{"login":"reviewer","type":"User"},"author_association":"COLLABORATOR","state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-a.json"
 printf '[{"commit_id":"%s","user":{"login":"reviewer","type":"User"},"author_association":"COLLABORATOR","state":"APPROVED"}]\n' "$SHA_B" > "$TMP/approved-b.json"
@@ -223,14 +230,14 @@ printf '[{"event":"labeled","label":{"name":"human-approved"},"actor":{"type":"U
 printf '[{"event":"labeled","label":{"name":"human-approved"},"actor":{"type":"Bot"},"created_at":"2026-11-09T12:00:00Z"}]\n' > "$TMP/label-bot-noon.json"
 printf '[{"commit_id":"%s","user":{"login":"stranger","type":"User"},"author_association":"NONE","state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-stranger.json"
 printf '[{"commit_id":"%s","user":{"login":"app","type":"Bot"},"author_association":"COLLABORATOR","state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-bot.json"
-gate() { "$HG" --pr 7 --sha "$SHA_A" --author author --events-json "$TMP/label-user-noon.json" --pushed-at 2026-11-09T11:00:00Z --permissions "reviewer=write,author=admin,stranger=read,app=write,reader=read" "$@" >/dev/null 2>&1 && echo pass || echo fail; }
+gate() { "$HG" --pr 7 --sha "$SHA_A" --author author --events-json "$TMP/label-user-noon.json" --statuses-json "$TMP/verified-ok.json" --pushed-at 2026-11-09T11:00:00Z --permissions "reviewer=write,author=admin,stranger=read,app=write,reader=read" "$@" >/dev/null 2>&1 && echo pass || echo fail; }
 printf '[{"commit_id":"%s","user":{"login":"reader","type":"User"},"author_association":"MEMBER","state":"APPROVED"}]\n' "$SHA_A" > "$TMP/approved-reader.json"
 c=$(gate_cfg human-approved '""')
 check "gate: low passes without anything" pass "$(gate --level low --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
 check "gate: medium without label or review fails" fail "$(gate --level medium --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
 check "gate: label by a person after the push passes" pass "$(gate --level high --config "$c" --labels "risk:high,human-approved" --reviews-json "$TMP/no-reviews.json")"
 check "gate: label from before the push fails" fail "$(gate --level high --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --pushed-at 2026-11-09T13:00:00Z)"
-check "gate: a label from before the push explains the push time" yes "$("$HG" --pr 7 --sha "$SHA_A" --author author --level high --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --events-json "$TMP/label-user-noon.json" --pushed-at 2026-11-09T13:00:00Z --permissions "author=admin" 2>&1 | grep -q "first workflow run" && echo yes || echo no)"
+check "gate: a label from before the push explains the push time" yes "$("$HG" --pr 7 --sha "$SHA_A" --author author --level high --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --events-json "$TMP/label-user-noon.json" --statuses-json "$TMP/verified-ok.json" --pushed-at 2026-11-09T13:00:00Z --permissions "author=admin" 2>&1 | grep -q "first workflow run" && echo yes || echo no)"
 check "gate: label set by a bot fails" fail "$(gate --level medium --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --events-json "$TMP/label-bot-noon.json")"
 check "gate: approval by another person on the head commit passes" pass "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-a.json")"
 check "gate: approval on an older commit does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-b.json")"
@@ -251,6 +258,21 @@ c=$(gate_cfg 'risk:high' '""')
 check "gate: label named like a CI label is refused" fail "$(gate --level medium --config "$c" --labels risk:high --reviews-json "$TMP/no-reviews.json")"
 printf 'doc_language: de\n' > "$TMP/gate-empty.yml"
 check "gate: missing keys fall back to the label human-approved" pass "$(gate --level medium --config "$TMP/gate-empty.yml" --labels human-approved --reviews-json "$TMP/no-reviews.json")"
+c=$(gate_cfg human-approved '""')
+check "gate G3: high without the status verified fails" fail "$(gate --level high --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/verified-none.json")"
+check "gate G3: high with verified = failure fails" fail "$(gate --level high --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/verified-failed.json")"
+check "gate G3: the message names /verify" yes "$("$HG" --pr 7 --sha "$SHA_A" --author author --level high --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/verified-none.json" 2>&1 | grep -q '/verify 7' && echo yes || echo no)"
+check "gate G3: an approval does not replace verified" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-a.json" --statuses-json "$TMP/verified-none.json")"
+check "gate G3: medium without verified passes by default" pass "$(gate --level medium --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/verified-none.json")"
+check "gate G3: a pull request by a bot is exempt" pass "$(gate --level high --config "$c" --author "dependabot[bot]" --labels human-approved --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/verified-none.json")"
+check "gate G3: low never needs verified" pass "$(gate --level low --config "$(gate_cfg human-approved '""' medium)" --labels "" --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/verified-none.json")"
+c=$(gate_cfg human-approved '""' medium)
+check "gate G3: verify_required_for medium covers medium" fail "$(gate --level medium --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/verified-none.json")"
+check "gate G3: verify_required_for medium passes with verified" pass "$(gate --level medium --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json")"
+c=$(gate_cfg human-approved '""' '""')
+check "gate G3: verify_required_for empty switches it off" pass "$(gate --level high --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/verified-none.json")"
+c=$(gate_cfg human-approved '""' High)
+check "gate G3: unknown verify_required_for fails closed" fail "$(gate --level medium --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json")"
 check "gate: bad sha is a usage error" "2" "$("$HG" --level medium --pr 7 --sha abc --author author >/dev/null 2>&1; echo $?)"
 
 # Review rules, in a temporary project repository
@@ -397,6 +419,7 @@ deny|gh api -X PUT repos/o/r/pulls/5/merge
 deny|gh api repos/o/r/statuses/abc -f state=success -f context=human-gate
 deny|gh api repos/o/r/statuses/abc -f state=success -f context=ai-review
 deny|harness/scripts/review-status.sh set --sha abc --state success --description x
+deny|gh api repos/o/r/statuses/abc -f state=success -f context=verified
 deny|gh -R o/r pr merge 5
 deny|gh --repo=o/r pr review 5 --approve
 deny|git -C . push --force origin feat/x
@@ -443,6 +466,7 @@ allow|sed -i '' s/a/b/ harness/templates/AGENTS.md
 allow|git add AGENTS.md && git commit -F /tmp/msg
 allow|grep -n policies harness/policies/risk.md > /tmp/out
 allow|harness/scripts/review-status.sh publish --sha abc
+allow|harness/scripts/review-status.sh verify --sha abc --state success --description x
 allow|harness/scripts/bootstrap.sh ../demo --name demo --source-paths src
 G
 check "guard: heredoc body is not matched" "allow" "$(guard "$(printf 'cat > doc.md <<'"'"'X'"'"'\ngh pr merge --auto runs in auto-merge.yml\nX\n')")"
@@ -489,6 +513,20 @@ printf '%s\n' "$c3" > "$TMP/commits3"
 check "status: last prints nothing without a saved result" "" "$(cd "$SR" && "$RS" last --commits-from "$TMP/commits3")"
 (cd "$SR" && PATH="$TMP/bin:$PATH" "$RS" publish --sha "$c1" --repo o/r --note "übernommen von 2222222" >/dev/null)
 check "status: publish puts the note first" "description=übernommen von 2222222; Code, Sicherheit: 1 blockierend, 2 Hinweise" "$(grep '^description=' "$TMP/gh-args")"
+
+(cd "$SR" && PATH="$TMP/bin:$PATH" "$RS" verify --sha "$c1" --state success --description "2026-11-11, geprüft auf 2222222" --repo o/r >/dev/null)
+check "status: verify uses the context verified" "context=verified" "$(grep '^context=' "$TMP/gh-args")"
+check "status: verify sets the given state" "state=success" "$(grep '^state=' "$TMP/gh-args")"
+check "status: verify refuses pending" "2" "$(cd "$SR" && PATH="$TMP/bin:$PATH" "$RS" verify --sha "$c1" --state pending --description x --repo o/r >/dev/null 2>&1; echo $?)"
+check "status: verify needs a description" "2" "$(cd "$SR" && PATH="$TMP/bin:$PATH" "$RS" verify --sha "$c1" --state failure --repo o/r >/dev/null 2>&1; echo $?)"
+
+# Help of every script: the header comment, nothing of the code
+for s in "$ROOT"/harness/scripts/*.sh; do
+  want=$(awk 'NR > 1 && /^#/ { n++; next } NR > 1 { exit } END { print n + 0 }' "$s")
+  got=$("$s" --help 2>/dev/null | wc -l | tr -d ' ')
+  check "help of ${s##*/} prints its header" "$want" "$got"
+  check "help of ${s##*/} prints no code" "no" "$("$s" --help 2>/dev/null | grep -q 'set -euo' && echo yes || echo no)"
+done
 
 # Drift of generated files (harness/scripts/drift.sh)
 DR="$TMP/drift"

@@ -8,7 +8,7 @@ G3). The risk level (`risk.md`) decides which gates apply to a change.
 | **G0 spec approval** | the spec describes the right change | required | required | required |
 | **G1 plan approval** | the implementation plan in the spec is the right way | with G0 | with G0 | with G0 |
 | **G2 merge decision** | a person reviewed the head commit: the label `human-approved` after the last push, or an approving review by another person; then GitHub merges | – | required | required |
-| **G3 verification evidence** | the `/verify` table on the final commit, read by the approver | – | – | required |
+| **G3 verification evidence** | `verify` passed on the head commit: the status `verified` and the table in the PR body | – | with `verify_required_for: medium` | required (default) |
 
 ## How each gate is recorded
 
@@ -26,8 +26,13 @@ G3). The risk level (`risk.md`) decides which gates apply to a change.
   required check; it runs `harness/scripts/human-gate.sh` with the configuration of the base
   branch. When it passes, `auto-merge.yml` enables auto-merge, so the label is the merge decision.
   A push makes the label stale; set it again after reading the new commits.
-- **G3**: the line `Geprüft:` of the criteria table in the PR body names the head commit SHA. The
-  person confirms the SHA matches before setting the label.
+- **G3**: the commit status `verified` = `success` on the head commit, set by `verify` with
+  `harness/scripts/review-status.sh verify` (decision 0018). `human-gate.sh` checks it before G2
+  for the levels in `verify_required_for` (`harness/config.yml`: `high` by default, `medium` for
+  medium and high, `""` off; any other value fails the gate). The line `Geprüft:` of the criteria
+  table in the PR body names the checked commit; the head adds only the spec row. Pull requests by
+  bots are exempt: they have no spec, CI is their check. A push removes the status; `verify` runs
+  again before the label.
 
 ## Who reviews
 

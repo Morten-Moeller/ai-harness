@@ -51,9 +51,12 @@ Three independent sources of evidence:
    `docs/architecture/` changed. A second run reviews only what changed since the last reviewed
    commit. The result is the commit status `ai-review` and a report in the session, no PR comment.
    CI runs the rule check again as the required job `review-rules`. Details: `harness/review.md`.
-3. **`/verify <PR>`**: walks the acceptance criteria of the spec, runs the affected tests, walks the
+3. **`verify`**: walks the acceptance criteria of the spec, runs the affected tests, walks the
    application when a criterion names a screen, writes the result into the criteria table of the
-   PR body and sets the spec row to `fertig` or `in Arbeit`.
+   PR body, sets the spec row to `done` or `in Arbeit` and the commit status `verified` on the
+   head. `implement` runs it for medium and high risk once CI passed; the session runs it again
+   after a later push of its own; `/verify <PR>` starts it by hand. Always before the merge
+   (decision 0018).
 
 **Gate G2, merge decision.** Medium and high risk need a review by a person: the director reads
 the PR and sets the label `human-approved` after the last push, or a second person approves the
@@ -61,8 +64,10 @@ head commit (required when `second_reviewer_for` in `harness/config.yml` names t
 `human-gate` check in `auto-merge.yml` passes only then, and the same workflow enables auto-merge.
 Low risk passes the gate without a review.
 
-**Gate G3, verification evidence.** High risk needs the `/verify` result for the final commit in
-the PR body before the person sets the label.
+**Gate G3, verification evidence.** High risk needs the status `verified` = `success` on the head
+commit; `human-gate` checks it before G2. `verify_required_for` in `harness/config.yml` sets the
+levels (`high` by default, `medium` for medium and high, `""` off). Pull requests by bots are
+exempt.
 
 ## Merge
 
@@ -70,7 +75,9 @@ the PR body before the person sets the label.
   for low risk when the conditions in `harness/policies/auto-merge.md` hold, and for medium and
   high risk when `human-gate` passed.
 - No agent merges. `gh pr merge` is denied for agents.
-- After the merge the spec row moves to `done` with the PR number.
+- The spec row is `done` with the PR number before the merge, written by `verify` (medium, high) or
+  `implement` (low) on the PR branch. It reaches the default branch with the merge, so no pull
+  request after the merge is needed.
 
 ## Spec status values
 
@@ -78,10 +85,9 @@ the PR body before the person sets the label.
 |---|---|---|
 | `draft` | `/spec` | written, not approved |
 | `approved` | `/spec` on the person's answer, or a person | G0 and G1 passed, implementation may start |
-| `in Arbeit` | `implement`, `/verify` | code in progress or findings to fix |
+| `in Arbeit` | `implement`, `verify` | code in progress or findings to fix |
 | `Review` | `implement` | PR open, waiting for gates, reviews, verification |
-| `fertig` | `/verify` | every criterion met, ready to merge |
-| `done` | a person or `/verify` after merge | merged |
+| `done` | `verify`, `implement` for low risk, on the PR branch | every criterion met; on the default branch only through the merge |
 | `blockiert` | anyone | waits for a decision; the note names it |
 
 ## Rules that hold in every stage

@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement an approved spec up to a reviewed pull request - check gate G0, follow the plan in the spec, write code and tests on the feature branch, run the gates, review the branch and fix blocking findings before the push, open the pull request with the evidence per criterion, set the review status, wait for CI and fix failures caused by the change. Stops only when the change leaves the approved plan.
+description: Implement an approved spec up to a reviewed pull request - check gate G0, follow the plan in the spec, write code and tests on the feature branch, run the gates, review the branch and fix blocking findings before the push, open the pull request with the evidence per criterion, set the review status, wait for CI and fix failures caused by the change, then verify medium and high risk against the criteria. Stops only when the change leaves the approved plan.
 when_to_use: Load when the user runs /implement or names an approved spec and wants it built, or when the skill spec continues after "Freigeben und umsetzen". Never for a spec that is not approved.
 argument-hint: <spec id NNNN or path>
 ---
@@ -83,7 +83,9 @@ Run every step without a pause. Stop and ask only where a step says so.
 
 1. `git push -u origin <branch>`.
 2. `gh pr create --title "<title>" --body-file <body>`.
-3. Spec row: `PR` = `#<n>`. Commit `docs(specs): <NNNN> PR #<n>`, push.
+3. Low risk: spec row `PR` = `#<n>`, `Status` = `done`, `status: done` in the spec frontmatter.
+   The row reaches the default branch only with the merge. Commit `docs(specs): <NNNN> PR #<n>`,
+   push. Medium and high risk: no commit here; `verify` writes the row in step 9.
 4. Run the skill `review` with `<n>`. The result exists already; the skill sets the status
    `ai-review`.
 
@@ -94,20 +96,32 @@ Run every step without a pause. Stop and ask only where a step says so.
    by this change: fix, `make check`, commit, push, run `review` with `<n>`, watch again. At most
    two rounds. Not caused by this change (a missing tool, a check that fails on the base branch):
    report it with its output.
-3. `human-gate` is red for medium and high risk until the person sets the label. That is the
-   expected state.
+3. `human-gate` is red for medium and high risk until `verify` passed (step 9) and the person set
+   the label. That is the expected state.
 4. The PR body changes when the facts change (a criterion now has another test): edit it with
    `gh pr edit <n> --body-file <file>`.
 
-## 9. Summary
+## 9. Verify
+
+Medium and high risk only; low risk merges after the required checks.
+
+1. Run the skill `verify` with `<n>`. It writes the criteria table into the PR body, sets the row
+   to `done` or `in Arbeit`, pushes it, runs `review` and sets the commit status `verified`.
+2. A criterion `nicht erfüllt` or a failing check caused by this change: fix it inside the plan,
+   `make check`, commit, push, run `review` with `<n>`, then `verify` again. At most two rounds;
+   what is left goes into the summary.
+3. `gh pr checks <n> --watch` in the background after the last push; wait for its notification.
+
+## 10. Summary
 
 In the chat, in `doc_language`:
 
 - PR URL, risk level, the gates that apply.
 - The review result: blocking findings left, notes, one line each with file and line.
-- Gates skipped locally, end-to-end specs not run, failing checks with output, criteria left for
-  `/verify` in the browser.
+- The verification: the status `verified`, criteria `nicht erfüllt` or `nicht prüfbar` with the
+  reason.
+- Gates skipped locally, end-to-end specs not run, failing checks with output.
 - The next step: low risk merges after the required checks; medium and high risk wait for the
-  person's review and the label `human-approved`, then GitHub merges.
+  person's review and the label `human-approved` after the last push, then GitHub merges.
 
 Do not report passing checks. Labels, PR reviews and the merge are not part of this skill.

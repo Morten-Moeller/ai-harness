@@ -15,7 +15,7 @@
 # Exit 0: no drift or no generator. Exit 1: drift or a failed generator. Exit 2: usage error.
 set -euo pipefail
 
-usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 PRINT_TARGET=0

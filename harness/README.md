@@ -51,13 +51,14 @@ Project Context
 1. `/spec <topic>` asks, writes the spec with its implementation plan and ends with one question:
    approve and implement, approve only, or change. The answer of the person is gates G0 and G1.
 2. `implement` follows the plan: code and tests, `make check`, a review of the branch with fixes
-   for blocking findings, push, pull request, the commit status `ai-review`, waiting for CI. It
-   stops only when the change leaves the plan.
+   for blocking findings, push, pull request, the commit status `ai-review`, waiting for CI. For
+   medium and high risk it then runs `verify`: the acceptance criteria, the evidence in the PR
+   body, the commit status `verified`. It stops only when the change leaves the plan.
 3. CI runs the quality gates, computes the risk level, labels the PR and runs the rule check again
-   (`review-rules`). The session reviews every later push of its own. `/verify` walks the
-   acceptance criteria and writes the evidence into the PR body.
+   (`review-rules`). The session reviews and verifies every later push of its own.
 4. Low risk with green checks merges automatically. Medium and high risk merge automatically after
-   the person reads the PR and sets the label `human-approved` (gate G2, and G3 for high).
+   the person reads the PR and sets the label `human-approved` (gate G2; G3, the status
+   `verified`, for high).
 
 ## Harness-owned and project-owned files
 

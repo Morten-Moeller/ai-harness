@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# The result of /review as the commit status ai-review (harness/review.md, decision 0009).
+# The result of /review as the commit status ai-review (harness/review.md, decision 0009), and the
+# result of /verify as the commit status verified (decision 0018).
 #
 # Usage:
 #   review-status.sh save    --sha <sha> --file <result.md>
 #   review-status.sh load    --sha <sha>
 #   review-status.sh publish --sha <sha> [--note <text>] [--repo <owner/name>]
 #   review-status.sh set     --sha <sha> --state <success|failure|pending> --description <text> [--repo <owner/name>]
+#   review-status.sh verify  --sha <sha> --state <success|failure> --description <text> [--repo <owner/name>]
 #   review-status.sh last    --pr <n> [--repo <owner/name>] | --commits-from <file>
 #
 # save/load keep the result of a run in .git/ai-harness/review/<sha>.md, local and untracked. The
@@ -13,11 +15,12 @@
 #   <!-- ai-review state=<success|failure> level=<low|medium|high> reviews=<code,security,...> blocking=<n> notes=<n> -->
 # publish sets the status from that header. last prints the newest commit with a saved result,
 # from the commits of the pull request or from --commits-from (one SHA per line, oldest first,
-# e.g. git rev-list --reverse origin/main..HEAD), or nothing.
+# e.g. git rev-list --reverse origin/main..HEAD), or nothing. verify sets the status verified that
+# human-gate.sh reads for G3; set is for CI.
 # Exit 0: done. Exit 1: no saved result or API error. Exit 2: usage error.
 set -euo pipefail
 
-usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
 
 CONTEXT=ai-review
 cmd="${1:-}"
@@ -51,9 +54,9 @@ state_dir() {
 header_field() { sed -n '1s/.*[[:space:]]'"$1"'=\([^[:space:]]*\).*/\1/p' "$2"; }
 
 set_status() {
-  local description="${3:0:140}"
-  gh api -X POST "repos/$(repo)/statuses/$1" -f state="$2" -f context="$CONTEXT" -f description="$description" --silent
-  echo "Status $CONTEXT=$2 on ${1:0:7}: $description"
+  local description="${3:0:140}" context="${4:-$CONTEXT}"
+  gh api -X POST "repos/$(repo)/statuses/$1" -f state="$2" -f context="$context" -f description="$description" --silent
+  echo "Status $context=$2 on ${1:0:7}: $description"
 }
 
 case "$cmd" in
@@ -88,6 +91,12 @@ case "$cmd" in
     [ -n "$DESCRIPTION" ] || { echo "--description is required" >&2; exit 2; }
     set_status "$SHA" "$STATE" "$DESCRIPTION"
     ;;
+  verify)
+    need_sha
+    case "$STATE" in success|failure) ;; *) echo "--state must be success or failure" >&2; exit 2 ;; esac
+    [ -n "$DESCRIPTION" ] || { echo "--description is required" >&2; exit 2; }
+    set_status "$SHA" "$STATE" "$DESCRIPTION" verified
+    ;;
   last)
     if [ -n "$COMMITS_FROM" ]; then
       commits=$(cat "$COMMITS_FROM")
@@ -100,5 +109,6 @@ case "$cmd" in
       if [ -f "$dir/$sha.md" ]; then echo "$sha"; exit 0; fi
     done
     ;;
+  -h|--help) usage ;;
   *) usage >&2; exit 2 ;;
 esac

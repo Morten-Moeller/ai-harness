@@ -3,7 +3,8 @@ name: Merge policy
 # Two jobs:
 #   human-gate   required check. Passes for low risk at once; for medium and high when a person set
 #                the label human-approved after the last push, or another person approved the head
-#                commit. Logic: harness/scripts/human-gate.sh, decisions 0006 and 0010.
+#                commit, and for the levels in verify_required_for when the head has the status
+#                verified (G3). Logic: harness/scripts/human-gate.sh, decisions 0006, 0010, 0018.
 #   auto-merge   enables GitHub auto-merge when every condition of harness/policies/auto-merge.md
 #                holds, and disables it otherwise: low risk on its own, medium and high risk when
 #                human-gate passed, so the label is the merge decision. GitHub merges when all
@@ -26,6 +27,7 @@ permissions:
   contents: write
   issues: read
   pull-requests: write
+  statuses: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}

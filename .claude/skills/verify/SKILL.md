@@ -1,26 +1,31 @@
 ---
 name: verify
-description: Verify a pull request against the acceptance criteria of its spec - run make check and the affected tests, walk the application when a criterion names a screen, write the result table into the PR body and set the spec row to fertig or in Arbeit. Only on explicit request (/verify <PR>).
-when_to_use: Load when the user runs /verify, or names a PR in status Review and asks for the check against the spec. Do not start it on your own.
+description: Verify an open pull request against the acceptance criteria of its spec before the merge - run make check and the affected tests, walk the application when a criterion names a screen, write the result table into the PR body, set the spec row to done or in Arbeit and the commit status verified that the human gate reads for G3.
+when_to_use: Load when the user runs /verify, from implement once CI passed on a medium or high risk pull request, or after a push of this session to an open medium or high risk pull request whose head has no status verified. Never for a merged or closed pull request.
 argument-hint: <PR number | spec id>
-disable-model-invocation: true
 ---
 
 # Verify
 
-Stage 3 of `harness/workflow.md`. The merge is never part of this skill. `fertig` means: every
-criterion met, ready for the merge decision.
+Stage 3 of `harness/workflow.md`, before the merge decision (gate G3,
+`harness/policies/human-approval.md`). The merge is never part of this skill. The result is the
+criteria table in the PR body, the spec row and the commit status `verified` on the head.
 
 ## 1. Resolve and gate
 
-1. Argument is a PR number or a spec id. From a PR: `gh pr view <n> --json title,headRefName,
-   headRefOid,baseRefName,body,files`; the spec id is in the title `(NNNN)` or the body.
-   From a spec id: the `PR` column of the row. No PR: report and stop.
-2. Read the spec: acceptance criteria, verification plan. Read `project-rules/testing.md` for how
+1. Argument is a PR number or a spec id. From a PR: `gh pr view <n> --json state,title,headRefName,
+   headRefOid,baseRefName,body,files,statusCheckRollup`; the spec id is in the title `(NNNN)`, the
+   body or the branch name `<type>/<NNNN>-<slug>`. From a spec id: the `PR` column of the row.
+   No PR: report and stop.
+2. `state` must be `OPEN`. A merged or closed PR: report and stop; a finding after the merge is a
+   new change.
+3. Read the spec: acceptance criteria, verification plan. In the harness repository
+   (`harness/templates/` exists) the decision `harness/decisions/NNNN-*.md` of the change takes its
+   place, with the criteria of the PR body. No spec and no decision: only the automated checks
+   count, the table has one row `Automatische Checks`. Read `project-rules/testing.md` for how
    affected tests are selected and how the browser checks run.
-3. The PR body has a line `Geprüft: <date>, Commit <sha>` that names the same `headRefOid`: this
-   state is verified. Report and stop.
-4. Row status must be `Review` or `in Arbeit`. Otherwise report and stop.
+4. `statusCheckRollup` has `verified` with `SUCCESS` for the head: this state is verified. Report
+   and stop.
 
 ## 2. Scope
 
@@ -48,7 +53,8 @@ No criterion names a screen: the body says `Kein Browser-Test: <Grund>`.
 Run `make check` and the tests of the touched areas, end-to-end included. Test data with the steps
 of `.claude/skills/test-data/SKILL.md`. Keep the output of every failing check. Never weaken a
 check or a test to make it pass. A gate that prints `übersprungen` did not run; the line
-`Automatisch` names it, and the CI result of that gate counts.
+`Automatisch` names it, and the CI result of that gate counts. Started from `implement`: its gate
+results count when the head changed since only under `docs/specs/`.
 
 ## 5. Browser walk
 
@@ -68,7 +74,7 @@ write it back with `gh pr edit <n> --body-file <file>`. No PR comment. Language:
 ```text
 ## Akzeptanzkriterien
 
-Geprüft: <YYYY-MM-DD>, Commit <head SHA>, Branch hinter <base>: <ja/nein>
+Geprüft: <YYYY-MM-DD>, Commit <checked SHA>, Branch hinter <base>: <ja/nein>
 Automatisch: make check <grün | FEHLER: Gate>; Tests <Auswahl>: <grün | FEHLER: ...>
 Browser: <Umfang | Kein Browser-Test: Grund>
 
@@ -81,14 +87,28 @@ The output of a failing check goes to the chat, not into the body.
 
 ## 7. Row
 
-- Every check green and no criterion `nicht erfüllt`: `Status` = `fertig`. Otherwise `in Arbeit`.
+Passed means: every check green and no criterion `nicht erfüllt`. `nicht prüfbar` alone does not
+block it; name it in the summary so the person decides.
+
+- Passed: `Status` = `done`, `PR` = `#<n>`; also `status: done` in the spec frontmatter. The row
+  reaches the default branch only with the merge, so `done` is true there. Otherwise `in Arbeit`.
 - `Stand` = today. `Notiz` = criteria `nicht prüfbar` or the failing check, one line.
-- Commit only `docs/specs/README.md` on the PR branch: `docs(specs): <NNNN> <fertig|in Arbeit>
-  nach Test`, with the attribution line from the session. Push.
+- Commit only the row and the frontmatter on the PR branch: `docs(specs): <NNNN> <done|in Arbeit>
+  nach Test`, with the attribution line from the session. Push. Then run the skill `review` with
+  `<n>`; the new commit changes only `docs/specs/`, so its state is `übernommen`.
+- No spec row (no spec, the harness repository) or nothing changed: no commit.
 
-`nicht prüfbar` alone does not block `fertig`. Name it in the summary so the person decides.
+## 8. Status
 
-## 8. Summary
+`harness/scripts/review-status.sh verify --sha <head> --state <success|failure> --description
+"<YYYY-MM-DD>, geprüft auf <checked SHA 7>[, <n> nicht prüfbar]"`. `<head>` is the commit after the
+push of step 7 (`git rev-parse HEAD`), or the checked commit when step 7 made none. `success` when
+passed, `failure` otherwise. A later push has no status; `human-gate` then fails for the levels in
+`verify_required_for` (`harness/config.yml`) until `verify` runs again.
 
-PR, row status, failing checks with output, criteria not met or not testable, the branch checked
-out before. The working tree stays on the PR branch. Do not report passing checks.
+## 9. Summary
+
+PR, row status, the status `verified`, failing checks with output, criteria not met or not
+testable, the branch checked out before. The working tree stays on the PR branch. Do not report
+passing checks. Outside `implement`, the next step: the person reads the PR and sets the label
+`human-approved` after this push; started from `implement`, return the result to it.
