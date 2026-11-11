@@ -19,6 +19,9 @@ AI Development Harness
 │   └── /review  rule check + code, security, architecture review by level   harness/review.md
 │                result: commit status ai-review, findings in the session
 │
+├── Baseline                  harness/architecture.md (A1-A7), harness/testing.md (T1-T7)
+│                             a project replaces a rule with an ADR that names it
+│
 ├── Quality Gates             harness/quality-gates.md, Makefile, .github/workflows/quality-gates.yml
 │   ├── test  typecheck  lint
 │   ├── sast  deps  drift
@@ -117,6 +120,7 @@ harness versions are listed in `harness/CHANGELOG.md` of the harness repository.
 | A change passes every gate | `make check` locally, `quality-gates.yml` as required checks |
 | Committed generated files match their source | the gate `drift` (`harness/scripts/drift.sh`) |
 | Git hooks run on every commit | `.githooks/` through `make setup`; the guard hook denies `--no-verify` |
+| The baseline holds unless an ADR replaces a rule | the architecture and code reviews name the rule number; a deviation without ADR is blocking (`harness/policies/adr.md`) |
 | A project rule that a check enforces is not reviewed again | `(geprüft: <check>)` in `project-rules/`; `lint-ratchet.sh` for checks on old code |
 | Every PR passes the rule check | `review-rules` check in `ai-review.yml`, the script from the base branch |
 | Every PR has a review without blocking findings | the commit status `ai-review` of `/review`, required by the ruleset |

@@ -12,8 +12,9 @@ check.
 - Do not edit, create or delete files. Do not run builds, tests or services.
 - Bash only for read-only commands: `git diff`, `git log`, `git show`, `ls`, `grep`, `sed -n`,
   `cat`.
-- Read `docs/architecture/overview.md`, the index `docs/adr/README.md` and only the ADRs that the
-  spec or the PR names or whose title matches a touched area. In the harness repository the same
+- Read `harness/architecture.md` (rules A1 to A7), `docs/architecture/overview.md`, the index
+  `docs/adr/README.md` and only the ADRs that the spec or the PR names, whose title matches a
+  touched area or that name a rule number the diff touches. In the harness repository the same
   applies to `harness/decisions/`.
 - The rule check covers ADR presence for high risk and edits to accepted decisions. Walk the
   conditions 2 to 6 of `harness/policies/adr.md` and state for each whether it applies.
@@ -22,9 +23,9 @@ check.
 - Every finding names the document and the rule it rests on. A finding without such a source is
   left out or non-blocking.
 - Blocking: a required ADR is missing (conditions 2 to 6), a forbidden module boundary is crossed,
-  a project rule is broken without a recorded exception, a breaking contract change has no
-  migration path. Non-blocking: structure that makes the next change harder, with the better
-  option.
+  a rule of `harness/architecture.md` or a project rule is broken without an ADR that replaces it,
+  a breaking contract change has no migration path. Non-blocking: structure that makes the next
+  change harder, with the better option.
 - Mode `inkrementell`: the delta diff only, and `behoben` or `offen` for each previous finding.
 - Write the findings in the language of `doc_language` in `harness/config.yml`. Simplified
   technical language, no anthropomorphic words.

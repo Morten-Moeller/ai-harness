@@ -2,6 +2,29 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.5.0 (2026-11-11)
+
+A baseline of architecture and test rules, so a project does not start from zero. Decision 0017.
+
+Manual steps after `update.sh`:
+
+- `AGENTS.md`: the line on the baseline under `## Workflow` (`harness/templates/AGENTS.md`).
+- `project-rules/testing.md` (project-owned): remove the general rules that are now in
+  `harness/testing.md`, keep tools, commands, areas and test data; see the harness template.
+- `docs/adr/0000-template.md` (project-owned): add the line `Ersetzt Grundregeln: <Nummern oder
+  "keine">` under `Spec:`, as in the harness template.
+- Deviations of existing code that the project keeps: one ADR each, with the rule numbers in that
+  line.
+
+Changes:
+
+- New `harness/architecture.md` (A1 to A7) and `harness/testing.md` (T1 to T7), harness-owned.
+- `harness/policies/adr.md`: a deviation from a baseline rule needs an ADR that names it.
+- `spec` and `implement` read the baseline; the architecture review blocks a deviation without
+  ADR; the code and security reviews name the rule number.
+- `project-rules/testing.md` and `docs/architecture/overview.md` templates point to the baseline
+  and keep only project details.
+
 ## 0.4.1 (2026-11-11)
 
 Decision 0016.

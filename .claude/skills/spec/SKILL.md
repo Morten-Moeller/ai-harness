@@ -15,8 +15,8 @@ skill continues with `implement`.
 ## 1. Read
 
 - `harness/workflow.md` (stage 1), `harness/policies/risk.md`, `harness/policies/adr.md`.
-- `docs/domain/glossary.md`, `docs/architecture/overview.md`, the `project-rules/*.md` of the areas
-  the change touches.
+- `docs/domain/glossary.md`, `docs/architecture/overview.md`, `harness/architecture.md`,
+  `harness/testing.md`, the `project-rules/*.md` of the areas the change touches.
 - `docs/specs/README.md` and existing specs that share words with the topic (`grep -ril`). A spec
   that already covers the topic: report it and stop.
 - `doc_language` in `harness/config.yml`. The document is written in that language; the template
@@ -49,9 +49,11 @@ open go to `## Offene Fragen`; the skill does not guess.
 6. Risk: write the files of `## Umsetzung` to a scratchpad file and run
    `harness/scripts/risk-level.sh --files-from <file> --format text`. Write the level, the reasons
    and the gates that apply (`harness/policies/human-approval.md`) into `## Risiko`.
-7. ADR: walk the list in `harness/policies/adr.md`. Write `ADR nötig: ja, <reason>` or
-   `nein, weil <reason>`. When one is needed, write it now with the steps of
-   `.claude/skills/adr/SKILL.md` (status `proposed`); the approval below accepts it.
+7. ADR: walk the list in `harness/policies/adr.md`. A plan that deviates from a rule of
+   `harness/architecture.md` or `harness/testing.md` needs an ADR that names the rule number.
+   Write `ADR nötig: ja, <reason>` or `nein, weil <reason>`. When one is needed, write it now
+   with the steps of `.claude/skills/adr/SKILL.md` (status `proposed`); the approval below
+   accepts it.
 8. Verification plan: `make check`, the test files or areas that the criteria map to
    (`project-rules/testing.md`), the screens for the browser walk or `keiner`.
 9. Row in `docs/specs/README.md`:

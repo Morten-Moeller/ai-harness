@@ -17,7 +17,9 @@
 
 ## Modulgrenzen
 
-<!-- Welche Module es gibt, welche Abhängigkeitsrichtung erlaubt ist. -->
+<!-- Welche Module es gibt, welche Abhängigkeitsrichtung erlaubt ist. Grundregeln stehen in
+     harness/architecture.md (A1 bis A7); hier nur, was das Projekt ergänzt. Eine Abweichung
+     von einer Grundregel ist ein ADR, das die Regelnummer nennt. -->
 
 ## Querschnitt
 

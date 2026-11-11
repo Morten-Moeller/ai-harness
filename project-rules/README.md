@@ -1,8 +1,9 @@
 # Project rules
 
-Stack-specific rules that every change follows. `/implement` reads the file for the area it
-touches; `/review` checks against them. A rule that cannot be followed needs an ADR
-(`harness/policies/adr.md`).
+Stack-specific rules that every change follows. They add to the baseline of the harness,
+`harness/architecture.md` (A1 to A7) and `harness/testing.md` (T1 to T7), and do not repeat it.
+`/implement` reads the file for the area it touches; `/review` checks against them. A rule that
+cannot be followed, here or in the baseline, needs an ADR that names it (`harness/policies/adr.md`).
 
 | File | Covers |
 |---|---|

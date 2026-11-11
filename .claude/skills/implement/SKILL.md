@@ -18,7 +18,8 @@ Run every step without a pause. Stop and ask only where a step says so.
    `docs/specs/README.md`.
 2. `status` must be `approved` in the frontmatter and the row. Anything else: report the status
    and stop. Do not change the status.
-3. Read: `AGENTS.md`, the `project-rules/*.md` of the areas in the spec, `docs/domain/glossary.md`,
+3. Read: `AGENTS.md`, `harness/architecture.md`, `harness/testing.md`, the `project-rules/*.md` of
+   the areas in the spec, `docs/domain/glossary.md`,
    `docs/architecture/overview.md`, the ADRs in `adrs`, `contracts/README.md` when `## Contracts`
    is not `keine`.
 4. `harness/policies/adr.md` requires an ADR and `adrs` is empty: stop and report.
@@ -32,9 +33,10 @@ Run every step without a pause. Stop and ask only where a step says so.
 
 ## 3. Code and tests
 
-- Follow `## Umsetzung` of the spec and `project-rules/`. Use the glossary terms. No comments in
-  code. Simplified technical English in identifiers and messages; user-facing text through the
-  project's i18n.
+- Follow `## Umsetzung` of the spec, `harness/architecture.md`, `harness/testing.md` and
+  `project-rules/`; an ADR that names a rule number replaces that rule. Use the glossary terms.
+  No comments in code. Simplified technical English in identifiers and messages; user-facing text
+  through the project's i18n.
 - Every acceptance criterion gets the test named in the plan, failing without the change, or the
   `/verify` check named there. A criterion that names a screen gets an end-to-end test when
   `project-rules/testing.md` has that level.

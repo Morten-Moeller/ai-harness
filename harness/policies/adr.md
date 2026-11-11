@@ -13,8 +13,9 @@ linked from the spec and the PR.
    depend on.
 4. The decision has **alternatives** and its outcome affects **more than one module** or more than
    one team.
-5. The change **deviates from `project-rules/`** or from an existing ADR. The new ADR then
-   supersedes the old one or records the exception.
+5. The change **deviates from a rule of `harness/architecture.md` or `harness/testing.md`**, from
+   `project-rules/` or from an existing ADR. The new ADR names the rule numbers in its line
+   `Ersetzt Grundregeln:`, supersedes the old ADR or records the exception.
 6. A **reviewer** (`/review` or a person) asks for one.
 
 ## An ADR is not required when

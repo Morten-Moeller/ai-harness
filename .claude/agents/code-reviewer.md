@@ -21,6 +21,9 @@ check.
   those again.
 - A rule in `project-rules/` marked `(geprüft: <check>)` is enforced by that check in the gates.
   Do not report it again.
+- Tests follow `harness/testing.md` (T1 to T7) and `project-rules/testing.md`; name the rule
+  number in the finding. A test that only checks a mock or a forwarded call is `test-coverage`;
+  when it is the test of an acceptance criterion, it is `process`.
 - Report only findings you verified in the code. Each one has a failure scenario: the input and
   state that produce the wrong result. Leave out guesses.
 - Categories: correctness, security, data-loss, process, simplification, efficiency,

@@ -22,6 +22,8 @@ workflow, the gates and the policies in `harness/` apply to every change.
   `/domain`, do not invent synonyms.
 - Contracts in `contracts/` are the agreement with other systems. Changes follow
   `contracts/README.md` and the skill `/contract`.
+- Baseline: `harness/architecture.md` (A1 to A7) and `harness/testing.md` (T1 to T7) hold in every
+  change. A deviation needs an ADR that names the rule number.
 - Stack rules: `project-rules/frontend.md`, `project-rules/backend.md`, `project-rules/testing.md`.
 - Test data only through the command in `project-rules/testing.md` (skill `test-data`). Never
   write rows by hand.
