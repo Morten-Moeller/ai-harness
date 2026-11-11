@@ -2,6 +2,25 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.5.1 (2026-11-11)
+
+Fixes `update.sh` on macOS.
+
+Update from an older version:
+
+- A project below 0.5.1 runs `update.sh` twice. The first run still uses the old script of the
+  project, the second the new one. The old script skips `harness/owned-paths.txt` on macOS, and
+  below 0.4.0 also the entries with `*` (`.claude/skills/*/`, `.claude/agents/*.md`). Instead of
+  two runs, the script of the harness checkout can run once:
+  `<harness>/harness/scripts/update.sh <harness> --target <project>`.
+
+Changes:
+
+- `update.sh` trims lines with `[[:space:]]`. BSD sed reads `[ \t]` as space, backslash or the
+  letter t and cut `harness/owned-paths.txt` to `owned-paths.tx`, so the file was never copied.
+- `human-gate.sh`: the message for a label from before the push says that the push time is the
+  start of the first workflow run, a few seconds after the push.
+
 ## 0.5.0 (2026-11-11)
 
 A baseline of architecture and test rules, so a project does not start from zero. Decision 0017.

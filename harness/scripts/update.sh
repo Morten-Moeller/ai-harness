@@ -46,7 +46,7 @@ echo "harness $from_version -> $to_version"
 resolve() { # "src => dst" or "path" -> prints "src<TAB>dst"
   local line="$1"
   case "$line" in
-    *"=>"*) printf '%s\t%s\n' "$(printf '%s' "${line%%=>*}" | sed 's/[ \t]*$//')" "$(printf '%s' "${line#*=>}" | sed 's/^[ \t]*//')" ;;
+    *"=>"*) printf '%s\t%s\n' "$(printf '%s' "${line%%=>*}" | sed 's/[[:space:]]*$//')" "$(printf '%s' "${line#*=>}" | sed 's/^[[:space:]]*//')" ;;
     *) printf '%s\t%s\n' "$line" "$line" ;;
   esac
 }
@@ -64,7 +64,7 @@ copy_path() { # <src> <dst>
 
 section=copy
 while IFS= read -r line || [ -n "$line" ]; do
-  line=$(printf '%s' "$line" | sed 's/^[ \t]*//; s/[ \t]*$//')
+  line=$(printf '%s' "$line" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
   [ -z "$line" ] && continue
   case "$line" in
     \#*) continue ;;

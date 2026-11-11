@@ -173,8 +173,10 @@ check "bootstrap rejects a contracts target that is no make target" "2" "$("$ROO
 
 # Update from the harness into the bootstrapped project
 echo "changed" >> "$target/harness/workflow.md"
+echo "changed" >> "$target/harness/owned-paths.txt"
 "$ROOT/harness/scripts/update.sh" "$ROOT" --target "$target" >/dev/null
 check "update restores an owned file" "no" "$(grep -q '^changed$' "$target/harness/workflow.md" && echo yes || echo no)"
+check "update copies a path that ends in t" "no" "$(grep -q '^changed$' "$target/harness/owned-paths.txt" && echo yes || echo no)"
 check "update keeps project-owned files" "yes" "$(grep -q '^demo\.' "$target/AGENTS.md" && echo yes || echo no)"
 mkdir -p "$target/.claude/skills/orders-area"
 printf -- '---\nname: orders-area\n---\n' > "$target/.claude/skills/orders-area/SKILL.md"
@@ -183,7 +185,8 @@ echo "changed" >> "$target/.claude/skills/review/SKILL.md"
 mkdir -p "$target/.claude/skills/old-harness-skill"
 up_src="$TMP/update-src"
 rsync -a --exclude .git "$ROOT/" "$up_src/"
-printf '.claude/skills/old-harness-skill/\nsrc/\n' >> "$up_src/harness/owned-paths.txt"
+echo "notes" > "$up_src/harness/notes.txt"
+printf '[copy]\n\tharness/notes.txt \t=>\t tools/notes.txt \t\n[remove]\n.claude/skills/old-harness-skill/\nsrc/\n' >> "$up_src/harness/owned-paths.txt"
 mkdir -p "$target/src"
 "$up_src/harness/scripts/update.sh" "$up_src" --target "$target" >/dev/null
 check "update keeps a skill of the project" "yes" "$([ -f "$target/.claude/skills/orders-area/SKILL.md" ] && echo yes || echo no)"
@@ -191,6 +194,7 @@ check "update keeps an agent of the project" "yes" "$([ -f "$target/.claude/agen
 check "update restores a harness skill" "no" "$(grep -q '^changed$' "$target/.claude/skills/review/SKILL.md" && echo yes || echo no)"
 check "update deletes a path under [remove]" "no" "$([ -d "$target/.claude/skills/old-harness-skill" ] && echo yes || echo no)"
 check "update never removes a project path" "yes" "$([ -d "$target/src" ] && echo yes || echo no)"
+check "update trims spaces and tabs around src => dst" "notes" "$(cat "$target/tools/notes.txt" 2>/dev/null)"
 
 # Human gate
 HG="$ROOT/harness/scripts/human-gate.sh"
@@ -213,6 +217,7 @@ check "gate: low passes without anything" pass "$(gate --level low --config "$c"
 check "gate: medium without label or review fails" fail "$(gate --level medium --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
 check "gate: label by a person after the push passes" pass "$(gate --level high --config "$c" --labels "risk:high,human-approved" --reviews-json "$TMP/no-reviews.json")"
 check "gate: label from before the push fails" fail "$(gate --level high --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --pushed-at 2026-11-09T13:00:00Z)"
+check "gate: a label from before the push explains the push time" yes "$("$HG" --pr 7 --sha "$SHA_A" --author author --level high --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --events-json "$TMP/label-user-noon.json" --pushed-at 2026-11-09T13:00:00Z --permissions "author=admin" 2>&1 | grep -q "first workflow run" && echo yes || echo no)"
 check "gate: label set by a bot fails" fail "$(gate --level medium --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --events-json "$TMP/label-bot-noon.json")"
 check "gate: approval by another person on the head commit passes" pass "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-a.json")"
 check "gate: approval on an older commit does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-b.json")"
