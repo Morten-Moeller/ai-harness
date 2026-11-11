@@ -7,7 +7,9 @@
 # directories, `*` matches inside one directory segment. Files that match nothing are medium.
 #
 # Escalators raise the level by one step and never lower it. `keywords` are matched against
-# added lines of the diff, case-insensitive. `dependency_manifests` are at least medium unless the
+# added lines of the diff, case-insensitive, except in low files and in files that match
+# `keyword_exempt` (generated scripts whose comments and variable names hold such words).
+# `dependency_manifests` are at least medium unless the
 # PR is a Dependabot patch or minor update with no other files. `gate_markers` are extended
 # regular expressions in single quotes, matched against added lines outside Markdown and docs/.
 # A match raises low to medium, so a switched-off check never merges automatically; the rule
@@ -99,7 +101,7 @@ dependency_manifests:
   - "gradle.lockfile"
   - "**/gradle.lockfile"
   - "**/gradle/wrapper/gradle-wrapper.properties"
-  - "**/.mvn/wrapper/maven-wrapper.properties"
+  - "**/.mvn/wrapper/**"
   - "**/mvnw"
   - "**/mvnw.cmd"
 
@@ -117,6 +119,11 @@ keywords:
   - "chmod 777"
   - "eval("
   - "dangerouslysetinnerhtml"
+
+keyword_exempt:
+  - "**/mvnw"
+  - "**/mvnw.cmd"
+  - "**/.mvn/wrapper/**"
 
 gate_markers:
   - '\.(skip|only)\('

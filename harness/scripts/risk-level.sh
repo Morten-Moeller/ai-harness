@@ -86,7 +86,7 @@ compile_list() {
     printf '%s\t%s\n' "$(glob_to_regex "$pat")" "$pat"
   done > "$TMP/$1.re"
 }
-for lvl in high medium low dependency_manifests; do compile_list "$lvl"; done
+for lvl in high medium low dependency_manifests keyword_exempt; do compile_list "$lvl"; done
 yaml_list "$MATRIX" keywords | tr '[:upper:]' '[:lower:]' > "$TMP/keywords"
 GATE_RE=$(yaml_list "$MATRIX" gate_markers | awk 'NF { printf "%s(%s)", (n++ ? "|" : ""), $0 }')
 
@@ -182,9 +182,13 @@ if [ -s "$TMP/diff" ] && [ -s "$TMP/keywords" ]; then
     /^\+\+\+ / { f=$2; sub(/^b\//, "", f); next }
     /^\+/ && !/^\+\+\+/ { print f "\t" substr($0, 2) }
   ' "$TMP/diff" > "$TMP/added"
-  awk -F'\t' -v lowfile="$TMP/lowfiles" '
-    BEGIN { while ((getline l < lowfile) > 0) low[l]=1 }
-    !($1 in low) { print }
+  cp "$TMP/lowfiles" "$TMP/kwskip"
+  while IFS= read -r f; do
+    if match_list "$f" keyword_exempt >/dev/null; then printf '%s\n' "$f" >> "$TMP/kwskip"; fi
+  done < "$TMP/files"
+  awk -F'\t' -v skipfile="$TMP/kwskip" '
+    BEGIN { while ((getline l < skipfile) > 0) skip[l]=1 }
+    !($1 in skip) { print }
   ' "$TMP/added" > "$TMP/added.nonlow"
   hits=$(tr '[:upper:]' '[:lower:]' < "$TMP/added.nonlow" | grep -c -F -f "$TMP/keywords" || true)
   if [ "${hits:-0}" -gt 0 ]; then

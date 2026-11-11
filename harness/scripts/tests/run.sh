@@ -49,7 +49,7 @@ check "dependabot major stays medium" medium "$(level --files-from "$(files pack
 check "dependabot patch with a source file is medium" medium "$(level --files-from "$(files package.json src/a.ts)" --dependabot version-update:semver-patch)"
 check "maven manifest is a dependency manifest" low "$(level --files-from "$(files backend/pom.xml)" --dependabot version-update:semver-minor)"
 check "gradle wrapper is a dependency manifest" low "$(level --files-from "$(files gradle/wrapper/gradle-wrapper.properties build.gradle.kts)" --dependabot version-update:semver-patch)"
-check "maven wrapper scripts are dependency manifests" low "$(level --files-from "$(files backend/mvnw backend/mvnw.cmd backend/.mvn/wrapper/maven-wrapper.properties backend/pom.xml)" --dependabot version-update:semver-minor)"
+check "maven wrapper scripts are dependency manifests" low "$(level --files-from "$(files backend/mvnw backend/mvnw.cmd backend/.mvn/wrapper/maven-wrapper.properties backend/.mvn/wrapper/maven-wrapper.jar backend/pom.xml)" --dependabot version-update:semver-minor)"
 check "manifest with contract is high" high "$(level --files-from "$(files package.json contracts/x.yaml)")"
 
 # Escalators
@@ -86,6 +86,18 @@ diff --git a/src/a.ts b/src/a.ts
 -const password = "old";
 D
 check "keyword in a removed line does not raise" medium "$(level --files-from "$(files src/a.ts)" --diff-from "$TMP/diff-removed")"
+
+cat > "$TMP/diff-wrapper" <<'D'
+diff --git a/backend/mvnw.cmd b/backend/mvnw.cmd
+--- a/backend/mvnw.cmd
++++ b/backend/mvnw.cmd
+@@ -1 +1,2 @@
+ x
++@REM   MVNW_USERNAME/MVNW_PASSWORD - user and password for downloading maven
+D
+check "keyword in a maven wrapper script does not raise" medium "$(level --files-from "$(files backend/mvnw.cmd)" --diff-from "$TMP/diff-wrapper")"
+cat "$TMP/diff-src" >> "$TMP/diff-wrapper"
+check "keyword in source next to a wrapper still raises" high "$(level --files-from "$(files backend/mvnw.cmd src/a.ts)" --diff-from "$TMP/diff-wrapper")"
 
 cat > "$TMP/diff-skip" <<'D'
 diff --git a/tests/a.test.ts b/tests/a.test.ts

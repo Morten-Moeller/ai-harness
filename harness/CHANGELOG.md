@@ -4,7 +4,8 @@ Versions follow semver. Breaking means: a project needs a manual step after `upd
 
 ## 0.5.1 (2026-11-11)
 
-Fixes `update.sh` on macOS; the Maven wrapper scripts count as dependency manifests.
+Fixes `update.sh` on macOS. The Maven wrapper counts as a dependency manifest and no longer trips
+the keyword escalator.
 
 Manual steps:
 
@@ -14,8 +15,11 @@ Manual steps:
   two runs, the script of the harness checkout can run once:
   `<harness>/harness/scripts/update.sh <harness> --target <project>`.
 - Optional, for Maven projects: `harness/risk-matrix.yml` (project-owned, `update.sh` shows the
-  diff) adds `**/mvnw` and `**/mvnw.cmd` under `dependency_manifests`. Without them a Dependabot
-  update with a wrapper bump stays medium; nothing breaks.
+  diff) takes over the wrapper lines of the harness file: under `dependency_manifests`
+  `**/.mvn/wrapper/**` instead of `**/.mvn/wrapper/maven-wrapper.properties`, plus `**/mvnw` and
+  `**/mvnw.cmd`; the new list `keyword_exempt` with the same three patterns. Without them a
+  Dependabot update with a wrapper bump stays medium and a wrapper change by a person can become
+  high; nothing breaks.
 
 Changes:
 
@@ -23,8 +27,12 @@ Changes:
   letter t and cut `harness/owned-paths.txt` to `owned-paths.tx`, so the file was never copied.
 - `human-gate.sh`: the message for a label from before the push says that the push time is the
   start of the first workflow run, a few seconds after the push.
-- `harness/risk-matrix.yml`: `**/mvnw` and `**/mvnw.cmd` are dependency manifests. A Dependabot
-  patch or minor update that also bumps the Maven wrapper stays low instead of medium.
+- `harness/risk-matrix.yml`: `**/mvnw`, `**/mvnw.cmd` and everything under `**/.mvn/wrapper/` are
+  dependency manifests. A Dependabot patch or minor update that also bumps the Maven wrapper stays
+  low instead of medium.
+- `risk-level.sh` and the new matrix list `keyword_exempt`: added lines in matching files do not
+  count for the keyword escalator. The Maven wrapper scripts name `MVNW_PASSWORD` and `tokens` in
+  comments and variables; a change that only renormalized `mvnw.cmd` was raised to high.
 - `drift.sh`: the header and two tests state what a local run finds. A stale generated file in
   the working tree fails; a regenerated file that is not committed yet passes, CI finds it.
 
