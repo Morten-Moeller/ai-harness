@@ -39,6 +39,10 @@ result and the regeneration fixes it.
 - An agent can also propose a lower risk level for a path or switch off a review rule. That pull
   request is high risk and is judged by the old matrix and config; the person reads the change
   before the label.
+- The gate `drift` reads the target from the pull request, not from the base branch, so the change
+  that introduces a generator is checked at once. A pull request that empties the key skips the
+  gate; that change to `harness/config.yml` is high risk, and the rule `generiert` still reports a
+  hand edit of a file with a generated header.
 - The generator must be deterministic: the same source gives the same bytes. A timestamp or an
   unsorted map in the output fails the gate on every run.
 - `make check` runs the generator, which can need a build (for example `mvn package`).

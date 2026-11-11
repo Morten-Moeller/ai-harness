@@ -68,6 +68,7 @@ jobs:
           echo "level=$level" >> "$GITHUB_OUTPUT"
           rules=(bash "$RUNNER_TEMP/review-rules.sh" --root "$GITHUB_WORKSPACE" --pr "$PR" --level "$level"
                  --matrix "$RUNNER_TEMP/risk-matrix.yml")
+          # A base branch before harness 0.4.0 has a review-rules.sh without --config.
           if grep -q -- '--config)' "$RUNNER_TEMP/review-rules.sh"; then
             rules+=(--config "$RUNNER_TEMP/config.yml")
           fi

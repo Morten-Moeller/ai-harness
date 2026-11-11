@@ -77,7 +77,12 @@ comm -3 "$TMP/before" "$TMP/after" | sed 's/^[[:space:]]*//' | cut -d' ' -f2- | 
 } >&2
 if [ -n "${CI:-}" ]; then
   while IFS= read -r f; do
-    git -C "$ROOT" --no-pager diff -- "$f" 2>/dev/null | head -100 >&2 || true
+    if git -C "$ROOT" ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then
+      git -C "$ROOT" --no-pager diff -- "$f" 2>/dev/null | head -100 >&2 || true
+    elif [ -f "$ROOT/$f" ]; then
+      echo "--- neu: $f" >&2
+      head -100 "$ROOT/$f" >&2 || true
+    fi
   done < "$TMP/changed"
 fi
 exit 1
