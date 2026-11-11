@@ -360,6 +360,7 @@ deny|git -c core.hooksPath=/dev/null commit -m x
 deny|git config core.hooksPath /tmp/none
 allow|git config core.hooksPath .githooks
 allow|git config --get core.hooksPath
+deny|git -c core.hooksPath=/dev/null commit -m "git config --get x"
 allow|git commit -m x
 allow|git commit --amend --no-edit
 deny|cd /x && gh pr review 5 --approve

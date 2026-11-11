@@ -1,7 +1,7 @@
 # Quality gates. The target names are the contract with CI (harness/quality-gates.md).
 # Fill test, typecheck and lint. sast, deps, drift, check, setup and help come from harness/gates.mk.
 # e2e is optional: it runs locally, and in CI with e2e_in_ci: true in harness/config.yml.
-# precommit is optional: .githooks/pre-commit runs it on every commit when it exists.
+# precommit is optional: .githooks/pre-commit runs it on every commit when this file defines it.
 
 include harness/gates.mk
 

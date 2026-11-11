@@ -127,7 +127,7 @@ while IFS= read -r seg; do
     [[ $seg =~ ${S}git[[:space:]]+commit${W} ]] && [[ $seg =~ [[:space:]]-[A-Za-z]*n[A-Za-z]*([[:space:]]|$) ]] && deny "No git commit -n: the git hooks of the project run on every commit."
   fi
   if [[ $lraw =~ core\.hookspath ]] && ! [[ $lraw =~ core\.hookspath[[:space:]=]+\.githooks([[:space:]]|$) ]] \
-     && ! [[ $lraw =~ git[[:space:]]+config[[:space:]]+(--get|--get-all|-l|--list)([[:space:]]|$) ]]; then
+     && ! [[ $lraw =~ ^[[:space:]]*git[[:space:]]+config[[:space:]]+(--get|--get-all|-l|--list)[[:space:]]+[^[:space:]\"\']+[[:space:]]*$ ]]; then
     deny "core.hooksPath points to .githooks only (make setup)."
   fi
 

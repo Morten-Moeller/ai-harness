@@ -98,8 +98,9 @@ otherwise `/verify` walks the screen in the browser.
 ## Git hooks
 
 `make setup` points `core.hooksPath` to `.githooks/` (bootstrap does it for the first clone). The
-harness-owned `pre-commit` runs `make precommit` when the project defines it: fast checks on the
-staged files, such as the formatter in check mode. The guard hook denies `--no-verify`.
+harness-owned `pre-commit` runs `make precommit` when the project `Makefile` itself defines it (a
+target in an included file is not found): fast checks on the staged files, such as the formatter in
+check mode. The guard hook denies `--no-verify`.
 
 ## Filling the stubs
 
