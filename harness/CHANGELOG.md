@@ -2,6 +2,65 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.4.0 (2026-11-11)
+
+Checks instead of prose: generated files against their source, optional end-to-end tests in CI,
+project rules as linter rules with a ratchet, documents that name their sources. Project skills
+survive updates. Decisions 0012 to 0015.
+
+Manual steps after `update.sh`:
+
+- Run `harness/scripts/setup-repo.sh` after the merge of the update. The ruleset now requires
+  `gates (drift)` and `gates (e2e)`; both pass without running until the project configures them.
+- `harness/config.yml` (project-owned, `update.sh` shows the diff): add `e2e_in_ci: false`, and
+  `doku` to the comment of `review_rules_disabled`. A project with generated files sets
+  `contracts_generate_target` to the make target that writes them; the target must be
+  deterministic (`harness/quality-gates.md`).
+- `Makefile` (project-owned): add the `e2e` target, a stub or the real suite; optional
+  `precommit` (`harness/templates/Makefile`).
+- `project-rules/testing.md`: take over the sections Areas, End-to-end and Test data from the
+  harness template and fill them.
+- `AGENTS.md`: the lines of `## Verification` and the test data line of
+  `harness/templates/AGENTS.md`.
+- Every clone: `make setup` once, so the git hooks run.
+- `.gitattributes`: `update.sh` reports it as missing; copy it from the harness and keep the
+  project's own lines (generated paths).
+
+Changes:
+
+- New gate `make drift` (`harness/scripts/drift.sh`): runs the generator target and fails when it
+  changed a file. `bootstrap.sh --contracts-target <target>` sets the key.
+- New gate `make e2e`, required as `gates (e2e)`, runs in CI only with `e2e_in_ci: true`.
+  `implement` writes end-to-end tests for screen criteria when the project has them and runs the
+  specs of the touched areas; `/verify` runs them too. New skill `test-data`.
+- `project-rules/testing.md` template: test levels with the default stance (public interface, real
+  database, doubles only for other systems), areas, end-to-end, test data.
+- `harness/scripts/lint-ratchet.sh`: known lint findings per rule in `lint-baseline.txt`, counts may
+  only fall. Rules marked `(geprüft: <check>)` are skipped by the reviewer agents.
+- New review rule `doku`: a Markdown file with `sources:` globs whose sources changed while it did
+  not. `lint-baseline.txt` and `.githooks/` are gate files.
+- `update.sh` copies `.claude/skills/*/` and `.claude/agents/*.md` one by one and keeps the skills
+  and agents of the project; `[remove]` in `owned-paths.txt` deletes dropped harness paths.
+- `.githooks/pre-commit` runs `make precommit` when defined; `make setup` and `bootstrap.sh` set
+  `core.hooksPath`. The guard hook denies `--no-verify` and `git commit -n`.
+- `.gitattributes` (project-owned, `[diff-only]`): LF for text files.
+- The settings template no longer denies edits of `harness/config.yml` and
+  `harness/risk-matrix.yml`; both stay high risk, and the rule check in CI reads the config of the
+  base branch (`review-rules.sh --config`).
+- `/contract` adds the generator target and the config key in the same change when they are
+  missing.
+
+## 0.3.1 (2026-11-10)
+
+Changes:
+
+- `auto-merge.yml` deletes the head branch after a merge by `github-actions`; the repository
+  setting "Automatically delete head branches" acts only on merges by a person.
+- The guard hook denies `bootstrap.sh --github`, because it runs `setup-repo.sh`.
+- Note on 0.3.0: its fix of `review-rules.sh` (a decision stands in for a spec id in the title of
+  a harness PR) takes effect from the first PR after 0.3.0, because CI runs the rule script of the
+  base branch.
+
 ## 0.3.0 (2026-11-10)
 
 Fewer interruptions: two decisions per feature (spec approval, label), no review comments.

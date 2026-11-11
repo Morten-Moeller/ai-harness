@@ -1,3 +1,7 @@
+---
+sources: []
+---
+
 # Backend rules
 
 <!-- TODO: fill at project start. Delete sections that do not apply. -->

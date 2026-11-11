@@ -4,11 +4,13 @@
 # Usage (from the project root, or with --target):
 #   update.sh <harness-dir | git-url> [--ref <tag|branch>] [--target <project-dir>]
 #
-# Copies every path in the harness's owned-paths.txt, shows a diff for the [diff-only] paths and
-# writes HARNESS_VERSION. Nothing is committed; review with git diff and open a pull request.
+# Copies every path in the harness's owned-paths.txt, shows a diff for the [diff-only] paths,
+# deletes the [remove] paths and writes HARNESS_VERSION. A path with * copies each match on its
+# own, so files of the project next to them stay. Nothing is committed; review with git diff and
+# open a pull request.
 set -euo pipefail
 
-usage() { sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; }
 
 SOURCE=""
 REF=""
@@ -49,6 +51,17 @@ resolve() { # "src => dst" or "path" -> prints "src<TAB>dst"
   esac
 }
 
+copy_path() { # <src> <dst>
+  if [ -d "$SOURCE/$1" ]; then
+    mkdir -p "$TARGET/$2"
+    rsync -a --delete --exclude 'tests/' "$SOURCE/$1" "$TARGET/$2"
+  else
+    mkdir -p "$(dirname "$TARGET/$2")"
+    cp "$SOURCE/$1" "$TARGET/$2"
+  fi
+  echo "copied: $2"
+}
+
 section=copy
 while IFS= read -r line || [ -n "$line" ]; do
   line=$(printf '%s' "$line" | sed 's/^[ \t]*//; s/[ \t]*$//')
@@ -57,18 +70,32 @@ while IFS= read -r line || [ -n "$line" ]; do
     \#*) continue ;;
     "[diff-only]") section="diff"; continue ;;
     "[copy]") section="copy"; continue ;;
+    "[remove]") section="remove"; continue ;;
   esac
   IFS=$'\t' read -r src dst <<<"$(resolve "$line")"
+  if [ "$section" = remove ]; then
+    case "$src" in
+      /*|*..*) echo "skip (not a harness path): $src"; continue ;;
+      .claude/?*|.github/?*|.githooks/?*|harness/?*) ;;
+      *) echo "skip (not a harness path): $src"; continue ;;
+    esac
+    if [ -e "$TARGET/$src" ]; then rm -rf "${TARGET:?}/$src"; echo "removed: $src"; fi
+    continue
+  fi
+  if [ "$section" = copy ] && [[ "$src" == *"*"* ]]; then
+    found=0
+    for m in "$SOURCE"/$src; do
+      [ -e "$m" ] || continue
+      rel=${m#"$SOURCE"/}
+      copy_path "$rel" "$rel"
+      found=1
+    done
+    [ "$found" = 1 ] || echo "skip (not in source): $src"
+    continue
+  fi
   if [ ! -e "$SOURCE/$src" ]; then echo "skip (not in source): $src"; continue; fi
   if [ "$section" = copy ]; then
-    if [ -d "$SOURCE/$src" ]; then
-      mkdir -p "$TARGET/$dst"
-      rsync -a --delete --exclude 'tests/' "$SOURCE/$src" "$TARGET/$dst"
-    else
-      mkdir -p "$(dirname "$TARGET/$dst")"
-      cp "$SOURCE/$src" "$TARGET/$dst"
-    fi
-    echo "copied: $dst"
+    copy_path "$src" "$dst"
   else
     if [ -e "$TARGET/$dst" ]; then
       if ! diff -u "$TARGET/$dst" "$SOURCE/$src" >/dev/null 2>&1; then

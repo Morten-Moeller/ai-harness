@@ -2,7 +2,7 @@
 
 include harness/gates.mk
 
-SHELL_SCRIPTS := $(shell find harness/scripts .claude/hooks -name '*.sh' -not -path '*/tests/fixtures/*')
+SHELL_SCRIPTS := $(shell find harness/scripts .claude/hooks -name '*.sh' -not -path '*/tests/fixtures/*') .githooks/pre-commit
 JSON_FILES    := $(shell find . -name '*.json' -not -path './.git/*' -not -path './node_modules/*')
 WORKFLOWS     := $(wildcard .github/workflows/*.yml)
 

@@ -17,6 +17,8 @@ check.
   applies to `harness/decisions/`.
 - The rule check covers ADR presence for high risk and edits to accepted decisions. Walk the
   conditions 2 to 6 of `harness/policies/adr.md` and state for each whether it applies.
+- A rule in `project-rules/` marked `(geprüft: <check>)` is enforced by that check in the gates.
+  Do not report it again.
 - Every finding names the document and the rule it rests on. A finding without such a source is
   left out or non-blocking.
 - Blocking: a required ADR is missing (conditions 2 to 6), a forbidden module boundary is crossed,

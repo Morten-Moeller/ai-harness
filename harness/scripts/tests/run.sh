@@ -155,12 +155,40 @@ check "bootstrap writes the source paths" "$(printf '  - frontend/src\n  - backe
 check "bootstrap keeps the key after the source paths" "yes" "$(grep -q '^contracts_generate_target:' "$target2/harness/config.yml" && echo yes || echo no)"
 check "bootstrap rejects a bad --github" "2" "$("$ROOT/harness/scripts/bootstrap.sh" "$TMP/x" --name x --github 'not a repo' >/dev/null 2>&1; echo $?)"
 check "bootstrapped make help works" "yes" "$(make -C "$target" help 2>/dev/null | grep -q 'sast' && echo yes || echo no)"
+check "bootstrapped make help lists drift" "yes" "$(make -C "$target" help 2>/dev/null | grep -q 'drift' && echo yes || echo no)"
+check "bootstrap lets agents edit the config and the risk matrix" "0" "$(jq '[.permissions.deny[] | select(test("config.yml|risk-matrix.yml"))] | length' "$target/.claude/settings.json")"
+check "bootstrap leaves the generator empty by default" 'contracts_generate_target: ""' "$(grep '^contracts_generate_target:' "$target/harness/config.yml")"
+target3="$TMP/bootstrap-contracts"
+"$ROOT/harness/scripts/bootstrap.sh" "$target3" --name demo3 --owner someone --no-git --contracts-target contracts >/dev/null
+check "bootstrap writes the contracts target" "contracts_generate_target: contracts" "$(grep '^contracts_generate_target:' "$target3/harness/config.yml")"
+check "bootstrapped make help lists e2e and setup" "yes" "$(make -C "$target" help 2>/dev/null | grep -q 'e2e' && make -C "$target" help 2>/dev/null | grep -q 'setup' && echo yes || echo no)"
+check "bootstrapped make e2e passes without tests" "0" "$(make -C "$target" e2e >/dev/null 2>&1; echo $?)"
+check "bootstrap copies the git hooks and attributes" "yes" "$([ -x "$target/.githooks/pre-commit" ] && [ -f "$target/.gitattributes" ] && echo yes || echo no)"
+target4="$TMP/bootstrap-git"
+"$ROOT/harness/scripts/bootstrap.sh" "$target4" --name demo4 --owner someone >/dev/null
+check "bootstrap points git to the hooks" ".githooks" "$(git -C "$target4" config core.hooksPath)"
+check "bootstrap rejects a contracts target that is no make target" "2" "$("$ROOT/harness/scripts/bootstrap.sh" "$TMP/y" --name y --no-git --contracts-target '-f x' >/dev/null 2>&1; echo $?)"
 
 # Update from the harness into the bootstrapped project
 echo "changed" >> "$target/harness/workflow.md"
 "$ROOT/harness/scripts/update.sh" "$ROOT" --target "$target" >/dev/null
 check "update restores an owned file" "no" "$(grep -q '^changed$' "$target/harness/workflow.md" && echo yes || echo no)"
 check "update keeps project-owned files" "yes" "$(grep -q '^demo\.' "$target/AGENTS.md" && echo yes || echo no)"
+mkdir -p "$target/.claude/skills/orders-area"
+printf -- '---\nname: orders-area\n---\n' > "$target/.claude/skills/orders-area/SKILL.md"
+printf 'project agent\n' > "$target/.claude/agents/orders-reviewer.md"
+echo "changed" >> "$target/.claude/skills/review/SKILL.md"
+mkdir -p "$target/.claude/skills/old-harness-skill"
+up_src="$TMP/update-src"
+rsync -a --exclude .git "$ROOT/" "$up_src/"
+printf '.claude/skills/old-harness-skill/\nsrc/\n' >> "$up_src/harness/owned-paths.txt"
+mkdir -p "$target/src"
+"$up_src/harness/scripts/update.sh" "$up_src" --target "$target" >/dev/null
+check "update keeps a skill of the project" "yes" "$([ -f "$target/.claude/skills/orders-area/SKILL.md" ] && echo yes || echo no)"
+check "update keeps an agent of the project" "yes" "$([ -f "$target/.claude/agents/orders-reviewer.md" ] && echo yes || echo no)"
+check "update restores a harness skill" "no" "$(grep -q '^changed$' "$target/.claude/skills/review/SKILL.md" && echo yes || echo no)"
+check "update deletes a path under [remove]" "no" "$([ -d "$target/.claude/skills/old-harness-skill" ] && echo yes || echo no)"
+check "update never removes a project path" "yes" "$([ -d "$target/src" ] && echo yes || echo no)"
 
 # Human gate
 HG="$ROOT/harness/scripts/human-gate.sh"
@@ -258,6 +286,9 @@ check "rules: comment in source is reported, not blocking" "nein" "$(rule_rows "
 printf 'doc_language: de\nsource_paths:\n  - src\nreview_rules_disabled:\n  - kommentar\n' > "$RR/harness/config.yml"
 check "rules: disabled rule is skipped" "" "$(rule_rows "$(rr)" kommentar)"
 rrgit checkout -q main -- harness/config.yml
+printf 'review_rules_disabled:\n  - kommentar\n' > "$TMP/rr-base-config.yml"
+rr >/dev/null
+check "rules: --config replaces the config of the checkout" "" "$(rule_rows "$("$RR/harness/scripts/review-rules.sh" --files-from "$TMP/rr.files" --diff-from "$TMP/rr.diff" --body-from "$TMP/rr.body" --title "$RR_TITLE" --base-ref main --config "$TMP/rr-base-config.yml" --format tsv 2>/dev/null || true)" kommentar)"
 printf 'export const a = 1\nit.skip("slow", () => {})\n' > "$RR/src/a.ts"
 check "rules: switched-off test without reason blocks" "ja" "$(rule_rows "$(rr)" gate)"
 RR_BODY=$'| A1 | t |\n| A2 | t |\nGate-Änderung: upstream outage, ticket 12'
@@ -288,6 +319,22 @@ check "rules: generated file is reported" "nein" "$(rule_rows "$(rr)" generiert)
 printf '# Shared targets. Owned by the harness; do not edit in a project.\nx:\n' > "$RR/src/gen.ts"
 check "rules: a lower-case do-not-edit note is not a generated file" "" "$(rule_rows "$(rr)" generiert)"
 rm -f "$RR/src/gen.ts"
+printf -- '---\nsources: [src/**]\n---\n\n# Rules\n' > "$RR/docs/rules.md"
+printf -- '---\nsources:\n  - "contracts/**"\n---\n\n# API\n' > "$RR/docs/api.md"
+printf -- '---\nsources: []\n---\n\n# Empty\n' > "$RR/docs/empty.md"
+rrgit add -A && rrgit commit -q -m docs && rrgit branch -f main HEAD
+printf 'export const a = 3\n' > "$RR/src/a.ts"
+check "rules: a changed source names its document" "docs/rules.md" "$(rr | awk -F'\t' '$1 == "doku" { print $2 }')"
+printf 'more\n' >> "$RR/docs/rules.md"
+check "rules: a document changed with its source is not named" "" "$(rule_rows "$(rr)" doku)"
+rrgit checkout -q main -- docs/rules.md
+printf 'openapi: 3.1.0\n' > "$RR/contracts/api.yaml"
+check "rules: sources as a list" "docs/api.md docs/rules.md" "$(rr | awk -F'\t' '$1 == "doku" { print $2 }' | sort | tr '\n' ' ' | sed 's/ $//')"
+rm -f "$RR/contracts/api.yaml"
+rrgit checkout -q main -- src/a.ts
+printf 'no-console 3\n' > "$RR/lint-baseline.txt"
+check "rules: the lint baseline is a gate file" "nein" "$(rule_rows "$(rr)" gate)"
+rm -f "$RR/lint-baseline.txt"
 
 # Guard hook (.claude/hooks/guard-bash.sh)
 GUARD="$ROOT/.claude/hooks/guard-bash.sh"
@@ -305,6 +352,17 @@ while IFS='|' read -r expected command; do
   check "guard: $command" "$expected" "$actual"
 done <<'G'
 deny|gh pr merge 5 --squash
+deny|git commit --no-verify -m x
+deny|git commit -n -m x
+deny|git push --no-verify origin feat/x
+deny|git commit -nm x
+deny|git -c core.hooksPath=/dev/null commit -m x
+deny|git config core.hooksPath /tmp/none
+allow|git config core.hooksPath .githooks
+allow|git config --get core.hooksPath
+deny|git -c core.hooksPath=/dev/null commit -m "git config --get x"
+allow|git commit -m x
+allow|git commit --amend --no-edit
 deny|cd /x && gh pr review 5 --approve
 deny|gh label create x
 deny|gh pr edit 5 --add-label human-approved
@@ -348,6 +406,7 @@ deny|cp /tmp/x harness/policies/risk.md
 deny|git checkout origin/main -- AGENTS.md
 deny|harness/scripts/setup-repo.sh
 deny|./harness/scripts/update.sh ../ai-harness
+deny|harness/scripts/bootstrap.sh ../demo --name demo --github o/demo
 deny|bash harness/scripts/human-gate.sh --level medium --pr 5 --remove-stale
 allow|gh pr edit 5 --title "feat: x" --body-file /tmp/body.md
 allow|gh pr create --title x --body-file b --base main
@@ -364,6 +423,7 @@ allow|sed -i '' s/a/b/ harness/templates/AGENTS.md
 allow|git add AGENTS.md && git commit -F /tmp/msg
 allow|grep -n policies harness/policies/risk.md > /tmp/out
 allow|harness/scripts/review-status.sh publish --sha abc
+allow|harness/scripts/bootstrap.sh ../demo --name demo --source-paths src
 G
 check "guard: heredoc body is not matched" "allow" "$(guard "$(printf 'cat > doc.md <<'"'"'X'"'"'\ngh pr merge --auto runs in auto-merge.yml\nX\n')")"
 check "guard: python write to a protected path" "deny" "$(guard "$(printf 'python3 - <<X\nopen("AGENTS.md", "w").write("x")\nX\n')")"
@@ -409,6 +469,80 @@ printf '%s\n' "$c3" > "$TMP/commits3"
 check "status: last prints nothing without a saved result" "" "$(cd "$SR" && "$RS" last --commits-from "$TMP/commits3")"
 (cd "$SR" && PATH="$TMP/bin:$PATH" "$RS" publish --sha "$c1" --repo o/r --note "übernommen von 2222222" >/dev/null)
 check "status: publish puts the note first" "description=übernommen von 2222222; Code, Sicherheit: 1 blockierend, 2 Hinweise" "$(grep '^description=' "$TMP/gh-args")"
+
+# Drift of generated files (harness/scripts/drift.sh)
+DR="$TMP/drift"
+mkdir -p "$DR/harness/scripts"
+cp "$ROOT/harness/scripts/drift.sh" "$DR/harness/scripts/"
+cat > "$DR/Makefile" <<'MK'
+same: ; @printf 'v1\n' > gen.txt
+changed: ; @printf 'v2\n' > gen.txt
+added: ; @printf 'x\n' > extra.txt
+broken: ; @exit 3
+MK
+printf 'contracts_generate_target: ""\n' > "$DR/harness/config.yml"
+printf 'v1\n' > "$DR/gen.txt"
+drgit() { git -C "$DR" -c user.email=t@example.com -c user.name=t "$@"; }
+drgit init -q -b main && drgit add -A && drgit commit -q -m base
+drift() {
+  printf 'contracts_generate_target: %s\n' "$1" > "$DR/harness/config.yml"
+  "$DR/harness/scripts/drift.sh" > "$TMP/drift.out" 2>&1
+  echo $?
+}
+check "drift: no generator passes" "0" "$(drift '""')"
+check "drift: no generator says so" "yes" "$(grep -q 'kein Generator' "$TMP/drift.out" && echo yes || echo no)"
+check "drift: --print-target prints nothing without a generator" "" "$("$DR/harness/scripts/drift.sh" --print-target)"
+check "drift: generator output equal to the commit passes" "0" "$(drift same)"
+check "drift: --print-target prints the target" "same" "$("$DR/harness/scripts/drift.sh" --print-target)"
+check "drift: a changed generated file fails" "1" "$(drift changed)"
+check "drift: names the changed file" "  gen.txt" "$(grep '^  ' "$TMP/drift.out")"
+check "drift: leaves the new output in the working tree" "v2" "$(cat "$DR/gen.txt")"
+check "drift: a second run on the regenerated tree passes" "0" "$(drift changed)"
+drgit checkout -q -- gen.txt
+check "drift: a new generated file fails" "1" "$(drift added)"
+check "drift: names the new file" "  extra.txt" "$(grep '^  ' "$TMP/drift.out")"
+rm -f "$DR/extra.txt"
+printf 'local work\n' > "$DR/notes.txt"
+check "drift: other uncommitted files do not count" "0" "$(drift same)"
+rm -f "$DR/notes.txt"
+check "drift: a failing generator fails" "1" "$(drift broken)"
+check "drift: a target that is no make target is a usage error" "2" "$(drift '-f')"
+
+# Lint ratchet (harness/scripts/lint-ratchet.sh)
+LR="$ROOT/harness/scripts/lint-ratchet.sh"
+BL="$TMP/lint-baseline.txt"
+printf 'no-console 3\nno-any 1\n' > "$BL"
+ratchet() { printf '%b' "$1" | "$LR" --baseline "$BL" "${@:2}" >/dev/null 2>&1; echo $?; }
+check "ratchet: equal counts pass" "0" "$(ratchet 'no-console 3\nno-any 1\n')"
+check "ratchet: a higher count fails" "1" "$(ratchet 'no-console 4\nno-any 1\n')"
+check "ratchet: a new rule with findings fails" "1" "$(ratchet 'no-console 3\nno-any 1\nno-eval 1\n')"
+check "ratchet: a lower count passes" "0" "$(ratchet 'no-console 2\n')"
+check "ratchet: --update refuses a higher count" "1" "$(ratchet 'no-console 5\n' --update)"
+check "ratchet: --update lowers" "0" "$(ratchet 'no-console 2\n' --update)"
+check "ratchet: the lowered baseline" "no-console 2" "$(grep -v '^#' "$BL")"
+rm -f "$BL"
+check "ratchet: --update writes the first baseline" "0" "$(ratchet 'no-any 7\n' --update)"
+check "ratchet: the first baseline" "no-any 7" "$(grep -v '^#' "$BL")"
+check "ratchet: an unknown argument is a usage error" "2" "$(ratchet '' --bad)"
+
+# Git hook (.githooks/pre-commit)
+HK="$TMP/hook-repo"
+mkdir -p "$HK"
+cp -R "$ROOT/.githooks" "$HK/"
+printf 'precommit: ; @touch ran.marker\n' > "$HK/Makefile"
+hkgit() { git -C "$HK" -c user.email=t@example.com -c user.name=t "$@"; }
+hkgit init -q -b main && hkgit config core.hooksPath .githooks && hkgit add -A && hkgit commit -q -m one
+check "hook: pre-commit runs make precommit" "yes" "$([ -f "$HK/ran.marker" ] && echo yes || echo no)"
+rm -f "$HK/ran.marker"
+printf 'other: ; @true\n' > "$HK/Makefile"
+hkgit add -A && hkgit commit -q -m two
+check "hook: no precommit target, no run" "no" "$([ -f "$HK/ran.marker" ] && echo yes || echo no)"
+printf 'include missing.mk\nprecommit: ; @true\n' > "$HK/Makefile"
+hkgit add -A
+check "hook: a broken Makefile stops the commit" "1" "$(hkgit commit -q -m broken >/dev/null 2>&1; echo $?)"
+printf 'precommit: ; @exit 1\n' > "$HK/Makefile"
+hkgit add -A
+check "hook: a failing precommit stops the commit" "1" "$(hkgit commit -q -m three >/dev/null 2>&1; echo $?)"
 
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ]

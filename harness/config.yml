@@ -14,8 +14,15 @@ default_branch: main
 source_paths:
   - src
 
-# Where the generated contracts live and which make target regenerates them. Empty = none.
+# Make target that regenerates the committed generated files (contracts, API types). The gate
+# `make drift` runs it and fails when a committed copy differs (harness/quality-gates.md).
+# Empty = no generated files.
 contracts_generate_target: ""
+
+# End-to-end tests in CI: true runs `make e2e` as the required check `gates (e2e)`; the tests must
+# start the application themselves. false: `make e2e` runs locally (project-rules/testing.md) and
+# the check passes without running.
+e2e_in_ci: false
 
 # The size escalator: more changed lines than this raises low to medium.
 low_risk_max_lines: 200
@@ -40,5 +47,5 @@ second_reviewer_for: ""
 review_combined_max_lines: 150
 
 # Rules of harness/scripts/review-rules.sh to switch off, one per line:
-# spec, adr, entscheidung, gate, kommentar, generiert, kriterium, contract.
+# spec, adr, entscheidung, gate, kommentar, generiert, kriterium, contract, doku.
 review_rules_disabled:

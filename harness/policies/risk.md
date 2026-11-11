@@ -40,8 +40,10 @@ Escalators raise the level by one step. They never lower it.
 
 ## Who may lower a level
 
-Only a person, by editing `harness/risk-matrix.yml` in a reviewed PR. A single PR is never lowered
-by hand; the matrix is changed so the rule holds for the next change as well.
+Only a person, with the label on a PR that changes `harness/risk-matrix.yml`. An agent may write
+that change; the matrix is high risk, and CI judges the PR by the matrix of the base branch. A
+single PR is never lowered by hand; the matrix is changed so the rule holds for the next change as
+well.
 
 ## Unknown is medium
 

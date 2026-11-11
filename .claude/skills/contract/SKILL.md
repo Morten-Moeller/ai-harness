@@ -35,11 +35,13 @@ an ADR with the migration path for every consumer. `/adr` writes it.
 1. Edit the source of the contract only. A generated file is never edited by hand; its header
    names the source and the generator.
 2. `contracts_generate_target` set: run `make <target>` and stage the generated files with the
-   source. One commit for both sides.
+   source. One commit for both sides. Not set, and the contract has generated files: add the
+   generator target to the `Makefile` and set the key in `harness/config.yml` in the same change.
+   Both files belong in `## Umsetzung` of the spec; the config change makes the PR high risk.
 3. Versioning as in `contracts/README.md`: compatible keeps the version, breaking bumps it and
    keeps the old version until every consumer named in the spec has moved.
 4. Tests: the contract's own validation (schema lint, compile of generated types) runs in
-   `make typecheck` or `make test`. Run the one that applies.
+   `make typecheck` or `make test`. Run the one that applies, then `make drift`.
 
 ## 4. Finish
 

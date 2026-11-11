@@ -3,19 +3,21 @@
 #
 # Usage:
 #   bootstrap.sh <target-dir> --name <project> [--owner <github-login>] [--doc-language de]
-#                [--source-paths <dir,dir>] [--github <owner/name>] [--no-git]
+#                [--source-paths <dir,dir>] [--contracts-target <make-target>]
+#                [--github <owner/name>] [--no-git]
 #   bootstrap.sh --in-place --name <project> [--owner <github-login>] [--source-paths <dir,dir>]
-#                (inside a "Use this template" checkout)
+#                [--contracts-target <make-target>] (inside a "Use this template" checkout)
 #
 # Copies the template with its dotfiles into an empty folder, applies harness/templates/*
 # (Makefile, AGENTS.md, README.md, settings.json, setup action), replaces {{PROJECT_NAME}} and
 # {{PROJECT_OWNER}}, removes the files that belong to the harness repository only, writes
-# HARNESS_VERSION and initialises git. --source-paths writes source_paths of harness/config.yml.
+# HARNESS_VERSION and initialises git. --source-paths writes source_paths of harness/config.yml,
+# --contracts-target its contracts_generate_target (the make target of the gate drift).
 # --github adds the remote, commits, pushes the default branch to the existing (empty) GitHub
 # repository and runs setup-repo.sh.
 set -euo pipefail
 
-usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; }
 
 HARNESS=$(cd "$(dirname "$0")/../.." && pwd)
 TARGET=""
@@ -25,6 +27,7 @@ DOC_LANGUAGE=""
 IN_PLACE=0
 NO_GIT=0
 SOURCE_PATHS=""
+CONTRACTS_TARGET=""
 GITHUB=""
 
 while [ $# -gt 0 ]; do
@@ -34,6 +37,7 @@ while [ $# -gt 0 ]; do
     --doc-language) DOC_LANGUAGE="$2"; shift 2 ;;
     --in-place) IN_PLACE=1; shift ;;
     --source-paths) SOURCE_PATHS="$2"; shift 2 ;;
+    --contracts-target) CONTRACTS_TARGET="$2"; shift 2 ;;
     --github) GITHUB="$2"; shift 2 ;;
     --no-git) NO_GIT=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -49,6 +53,9 @@ if [ -n "$GITHUB" ]; then
 fi
 if [ -n "$SOURCE_PATHS" ]; then
   [[ "$SOURCE_PATHS" =~ ^[A-Za-z0-9._/-]+(,[A-Za-z0-9._/-]+)*$ ]] || { echo "--source-paths must be a comma-separated list of directories" >&2; exit 2; }
+fi
+if [ -n "$CONTRACTS_TARGET" ]; then
+  [[ "$CONTRACTS_TARGET" =~ ^[A-Za-z0-9_][A-Za-z0-9_.:/-]*$ ]] || { echo "--contracts-target must be a make target" >&2; exit 2; }
 fi
 if [ "$IN_PLACE" = 1 ]; then
   TARGET="$HARNESS"
@@ -108,6 +115,9 @@ if [ -n "$SOURCE_PATHS" ]; then
     { skip = 0; print }
   ' "$TARGET/harness/config.yml" > "$TARGET/harness/config.yml.new" && mv "$TARGET/harness/config.yml.new" "$TARGET/harness/config.yml"
 fi
+if [ -n "$CONTRACTS_TARGET" ]; then
+  sed -i.bak -e "s|^contracts_generate_target: .*|contracts_generate_target: $CONTRACTS_TARGET|" "$TARGET/harness/config.yml" && rm -f "$TARGET/harness/config.yml.bak"
+fi
 
 if [ "$IN_PLACE" = 1 ]; then
   rm -rf "$TARGET/harness/decisions" "$TARGET/harness/templates" "$TARGET/harness/scripts/tests" \
@@ -119,6 +129,7 @@ cp "$HARNESS/HARNESS_VERSION" "$TARGET/HARNESS_VERSION"
 if [ "$NO_GIT" = 0 ] && [ "$IN_PLACE" = 0 ] && [ ! -d "$TARGET/.git" ]; then
   default_branch=$(awk '$1 == "default_branch:" { print $2; exit }' "$TARGET/harness/config.yml")
   git -C "$TARGET" init -q -b "${default_branch:-main}"
+  git -C "$TARGET" config core.hooksPath .githooks
 fi
 
 if [ -n "$GITHUB" ]; then
@@ -137,6 +148,7 @@ Next steps:
   2. Fill .github/actions/setup/action.yml with the toolchain
   3. Fill project-rules/*.md and docs/domain/glossary.md
   4. Review harness/config.yml and harness/risk-matrix.yml
+  Every other clone: make setup (git hooks)
 MSG
 if [ -z "$GITHUB" ]; then
   echo "  5. Create the GitHub repository, push, then: harness/scripts/setup-repo.sh"

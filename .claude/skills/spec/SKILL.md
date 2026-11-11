@@ -43,7 +43,9 @@ open go to `## Offene Fragen`; the skill does not guess.
 4. Terms: use the glossary as written. A term that is missing goes to `## Begriffe` with a
    definition and a note "neu, mit /domain ins Glossar".
 5. `## Umsetzung`: the files to create or change, the steps in order, one test per criterion
-   (file and case, or the screen for `/verify`), contracts to regenerate.
+   (file and case; for a criterion that names a screen an end-to-end spec when
+   `project-rules/testing.md` has that level, otherwise the screen for `/verify`), the test data
+   states the tests need, contracts to regenerate.
 6. Risk: write the files of `## Umsetzung` to a scratchpad file and run
    `harness/scripts/risk-level.sh --files-from <file> --format text`. Write the level, the reasons
    and the gates that apply (`harness/policies/human-approval.md`) into `## Risiko`.

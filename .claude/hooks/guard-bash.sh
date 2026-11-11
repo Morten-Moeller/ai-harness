@@ -2,8 +2,9 @@
 # PreToolUse hook for Bash (harness/decisions/0011). Denies what only a person or CI may do:
 # merge, PR reviews, labels, rulesets, branch protection, repository settings, secrets, direct
 # commit status writes (only review-status.sh publish after a saved review), force pushes, pushes
-# to the default branch, setup-repo.sh and update.sh, and shell writes to the paths of the
-# Edit(...) deny rules in .claude/settings.json. Without jq it blocks every gh and git command.
+# to the default branch, skipped git hooks (--no-verify, decision 0015), setup-repo.sh and
+# update.sh, and shell writes to the paths of the Edit(...) deny rules in .claude/settings.json.
+# Without jq it blocks every gh and git command.
 # A guard against mistakes, not a security boundary: harness/scripts/human-gate.sh checks who set
 # the label. Heredoc bodies are not matched, so text that names a command can be written.
 #
@@ -77,6 +78,7 @@ P
 writer='(^|[[:space:]])(sed[[:space:]]+(-[A-Za-z]*i|--in-place)|perl[[:space:]]+-[A-Za-z]*i|tee|cp|mv|rm|truncate|rsync|ln|install|dd|patch|git[[:space:]]+(apply|checkout|restore|rm|mv))([[:space:]]|$)'
 
 while IFS= read -r seg; do
+  lraw=$(printf '%s' "$seg" | tr '[:upper:]' '[:lower:]')
   seg=$(printf '%s' "$seg" | tr -s ' \t' '  ' | sed -E \
     -e 's/(^|[^A-Za-z0-9_./-])gh(( (-R|--repo)( |=)[^ ]+)+)/\1gh/' \
     -e 's/(^|[^A-Za-z0-9_./-])git(( (-C|-c|--git-dir|--work-tree|--namespace)( |=)[^ ]+| --no-pager| -P)+)/\1git/')
@@ -105,6 +107,7 @@ while IFS= read -r seg; do
   fi
   [[ $seg =~ review-status\.sh[[:space:]]+set${W} ]] && deny "review-status.sh set is for CI. Run the skill review; it saves the result and runs review-status.sh publish."
   [[ $seg =~ (^|[[:space:]/])setup-repo\.sh${W} ]] && deny "Labels, repository settings and the ruleset are set by a person: ! harness/scripts/setup-repo.sh"
+  [[ $seg =~ (^|[[:space:]/])bootstrap\.sh[[:space:]].*--github ]] && deny "bootstrap.sh --github runs setup-repo.sh; a person runs it. Without --github the agent may bootstrap."
   [[ $seg =~ (^|[[:space:]/])update\.sh${W} ]] && deny "update.sh overwrites .claude/settings.json; a person runs it: ! harness/scripts/update.sh <harness-dir>"
   [[ $seg =~ human-gate\.sh.*--remove-stale ]] && deny "--remove-stale removes labels; only CI runs it."
   [[ $seg =~ api\.github\.com.*(labels|rulesets|protection|statuses|merge|reviews|graphql) ]] && deny "Use gh for the GitHub API; labels, rulesets, statuses, merges and reviews are not for agents."
@@ -118,6 +121,15 @@ while IFS= read -r seg; do
       current=$(git -C "$ROOT" symbolic-ref --short HEAD 2>/dev/null || true)
       [ "$current" = "$default_branch" ] && deny "No push to $default_branch. Push a branch and open a pull request."
     fi
+  fi
+
+  if [[ $seg =~ ${S}git[[:space:]]+(commit|push|merge|rebase|cherry-pick|am)${W} ]]; then
+    [[ $seg =~ [[:space:]]--no-verify([[:space:]=]|$) ]] && deny "No --no-verify: the git hooks of the project run on every commit and push."
+    [[ $seg =~ ${S}git[[:space:]]+commit${W} ]] && [[ $seg =~ [[:space:]]-[A-Za-z]*n[A-Za-z]*([[:space:]]|$) ]] && deny "No git commit -n: the git hooks of the project run on every commit."
+  fi
+  if [[ $lraw =~ core\.hookspath ]] && ! [[ $lraw =~ core\.hookspath[[:space:]=]+\.githooks([[:space:]]|$) ]] \
+     && ! [[ $lraw =~ ^[[:space:]]*git[[:space:]]+config[[:space:]]+(--get|--get-all|-l|--list)[[:space:]]+[^[:space:]\"\']+[[:space:]]*$ ]]; then
+    deny "core.hooksPath points to .githooks only (make setup)."
   fi
 
   if [ -n "$protected_re" ]; then
