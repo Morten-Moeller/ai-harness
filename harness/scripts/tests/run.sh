@@ -163,6 +163,8 @@ target3="$TMP/bootstrap-contracts"
 check "bootstrap writes the contracts target" "contracts_generate_target: contracts" "$(grep '^contracts_generate_target:' "$target3/harness/config.yml")"
 check "bootstrapped make help lists e2e and setup" "yes" "$(make -C "$target" help 2>/dev/null | grep -q 'e2e' && make -C "$target" help 2>/dev/null | grep -q 'setup' && echo yes || echo no)"
 check "bootstrapped make e2e passes without tests" "0" "$(make -C "$target" e2e >/dev/null 2>&1; echo $?)"
+check "bootstrap copies the baseline" "yes" "$([ -f "$target/harness/architecture.md" ] && [ -f "$target/harness/testing.md" ] && echo yes || echo no)"
+check "the baseline is harness-owned" "2" "$(grep -cxE 'harness/(architecture|testing)\.md' "$ROOT/harness/owned-paths.txt")"
 check "bootstrap copies the git hooks and attributes" "yes" "$([ -x "$target/.githooks/pre-commit" ] && [ -f "$target/.gitattributes" ] && echo yes || echo no)"
 target4="$TMP/bootstrap-git"
 "$ROOT/harness/scripts/bootstrap.sh" "$target4" --name demo4 --owner someone >/dev/null

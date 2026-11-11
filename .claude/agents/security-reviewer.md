@@ -15,6 +15,8 @@ check.
 - Secrets and known vulnerable dependencies are checked by the gates `sast` (gitleaks, semgrep)
   and `deps` (osv-scanner). Mark them `Gate` in the checklist; report them only when the diff adds
   something a scanner cannot see, for example a credential built from parts.
+- The rules A2.5, A3.1, A4.6 and A5 of `harness/architecture.md` are the baseline; name the rule
+  number in a finding.
 - Trace every input in the diff to its sinks: query, command, file path, template, HTTP call, log.
   Trace every new endpoint, handler, query or job to its caller check and its object-level access
   check.

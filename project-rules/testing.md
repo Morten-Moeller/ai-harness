@@ -4,27 +4,24 @@ sources: []
 
 # Testing rules
 
-<!-- TODO: fill at project start. sources: the globs of the test setup (for example
-     playwright.config.ts, the test data tool); a change there asks to check this file. -->
+<!-- TODO: fill at project start. The general rules are in harness/testing.md (T1 to T7); this
+     file names the tools and commands of the project and its additions. A rule of
+     harness/testing.md that does not fit is replaced by an ADR that names its number.
+     sources: the globs of the test setup (for example playwright.config.ts, the test data tool). -->
 
 ## Levels
 
-| Level | Tool | Runs in | Scope |
+| Level | Tool | Runs in | Scope (harness/testing.md T1) |
 |---|---|---|---|
-| unit | TODO | `make test` | pure calculations and isolated mechanisms, no I/O |
-| integration | TODO | `make test` | one feature through its public interface (HTTP route, component) with the real database or an in-memory one; test doubles only for other systems |
-| end-to-end | TODO or none | `make e2e`, in CI only with `e2e_in_ci: true` | user flows in the browser against the running application |
+| unit | TODO | `make test` | pure calculations, table-driven |
+| integration | TODO | `make test` | one feature through its public interface, real database engine: TODO (container image) |
+| end-to-end | TODO or none | `make e2e`, in CI only with `e2e_in_ci: true` | user flows in the browser |
 
-## Rules
+## Additions
 
-- A change to behaviour comes with a test that fails without the change.
-- Test behaviour through the public interface, not private methods. No mocks of own classes; a
-  test double stands in for another system only (payment provider, mail, clock).
-- Tests are named after the behaviour, not the method.
-- A test creates the data it needs and does not count rows of others. Test data comes from
-  builders or factories: TODO. No reflection into private state.
-- Flaky tests are fixed or deleted in their own PR, never retried in CI.
-- Coverage floor, if any: TODO. The floor is a gate; lowering it is a reviewed change.
+- File layout of tests: TODO (for example specs next to the file, backend tests mirror the package).
+- Builders or factories: TODO.
+- Coverage floor, if any: TODO.
 
 ## Areas
 
@@ -41,11 +38,8 @@ change touches.
   compose file); then `e2e_in_ci: true` is possible. Or the application must run before
   (`make dev`); then `make e2e` runs locally only.
 - One spec: TODO (for example `pnpm exec playwright test e2e/orders.spec.ts`).
-- A criterion of a spec that names a screen gets an end-to-end test when this level exists;
-  otherwise `/verify` walks the screen in the browser.
-- Selectors: TODO (for example `data-testid` first, then role and name; never CSS classes of a
-  component library).
-- Waits: on a visible state or a request, never a fixed sleep.
+- Session setup (T6.2): TODO (setup project and storage state file).
+- Environment check (T4.3): TODO.
 
 ## Test data
 
