@@ -29,15 +29,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           DEFAULT: ${{ github.event.repository.default_branch }}
         run: |
-          since=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
-          gh pr list --repo "$GITHUB_REPOSITORY" --state merged --limit 100 \
-            --json number,headRefName,headRefOid,mergedAt,mergedBy,isCrossRepository \
-            --jq ".[] | select(.mergedAt > \"$since\" and (.isCrossRepository | not)
-                     and ((.mergedBy.is_bot // false) or (.mergedBy.login | startswith(\"app/\"))))
-                   | [.number, .headRefName, .headRefOid] | @tsv" > "$RUNNER_TEMP/merged.tsv"
+          [ -n "$DEFAULT" ] || DEFAULT=$(gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch)
+          [ -n "$DEFAULT" ] || { echo "No default branch; nothing deleted."; exit 1; }
+          since=$(date -u -d '7 days ago' +%Y-%m-%d)
+          gh pr list --repo "$GITHUB_REPOSITORY" --state merged --search "merged:>=$since" --limit 200 \
+            --json number,headRefName,headRefOid,mergedBy,isCrossRepository \
+            --jq '.[] | select((.isCrossRepository | not)
+                     and ((.mergedBy.is_bot // false) or ((.mergedBy.login // "") | startswith("app/"))))
+                   | [.number, .headRefName, .headRefOid] | @tsv' > "$RUNNER_TEMP/merged.tsv"
           while IFS=$'\t' read -r pr branch oid; do
             [ -n "$branch" ] || continue
             if [ "$branch" = "$DEFAULT" ]; then echo "#$pr: $branch is the default branch; kept."; continue; fi
+            if ! [[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]]; then echo "#$pr: $branch has characters outside [A-Za-z0-9._/-]; kept."; continue; fi
+            if [ "$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --base "$branch" --json number --jq length)" != 0 ]; then
+              echo "#$pr: $branch is the base of an open pull request; kept."; continue
+            fi
             if ! sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq .object.sha 2>/dev/null); then continue; fi
             if [ "$sha" != "$oid" ]; then echo "#$pr: $branch has commits after the merge; kept."; continue; fi
             if gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" --silent 2>"$RUNNER_TEMP/err"; then

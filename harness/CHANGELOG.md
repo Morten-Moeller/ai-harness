@@ -9,9 +9,9 @@ Decision 0016.
 Changes:
 
 - New `.github/workflows/branch-cleanup.yml`: every hour it deletes the head branch of a pull
-  request that a bot merged, when the branch still points to the merged commit. The job
-  `delete-branch` of 0.3.1 never ran (an event of `GITHUB_TOKEN` starts no workflow) and leaves
-  `auto-merge.yml` with its `closed` trigger.
+  request that a bot merged, when the branch still points to the merged commit and no open pull
+  request builds on it. The job `delete-branch` of 0.3.1 never ran (an event of `GITHUB_TOKEN`
+  starts no workflow); the job and the `closed` trigger are removed from `auto-merge.yml`.
 
 ## 0.4.0 (2026-11-11)
 

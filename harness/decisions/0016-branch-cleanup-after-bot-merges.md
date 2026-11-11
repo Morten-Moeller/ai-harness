@@ -15,7 +15,13 @@ on and did not delete the branch either.
 - `.github/workflows/branch-cleanup.yml` runs every hour and on request. It deletes the head
   branch of each pull request merged by a bot in the last seven days, when the branch still points
   to the merged head commit. Never the default branch, never a branch of a fork.
+- It keeps a branch that is the base of an open pull request or has a name outside
+  `[A-Za-z0-9._/-]`.
 - The job `delete-branch` and the `closed` trigger leave `auto-merge.yml`.
+
+Not chosen: enabling auto-merge with `AUTOMERGE_TOKEN` so that `closed` starts a workflow; it needs
+a personal or app token in every project. Deleting right after `gh pr merge --auto`; the merge
+happens later, when the last required check passes.
 
 ## Consequences
 
