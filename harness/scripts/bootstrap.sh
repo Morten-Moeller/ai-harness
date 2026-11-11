@@ -129,6 +129,7 @@ cp "$HARNESS/HARNESS_VERSION" "$TARGET/HARNESS_VERSION"
 if [ "$NO_GIT" = 0 ] && [ "$IN_PLACE" = 0 ] && [ ! -d "$TARGET/.git" ]; then
   default_branch=$(awk '$1 == "default_branch:" { print $2; exit }' "$TARGET/harness/config.yml")
   git -C "$TARGET" init -q -b "${default_branch:-main}"
+  git -C "$TARGET" config core.hooksPath .githooks
 fi
 
 if [ -n "$GITHUB" ]; then
@@ -147,6 +148,7 @@ Next steps:
   2. Fill .github/actions/setup/action.yml with the toolchain
   3. Fill project-rules/*.md and docs/domain/glossary.md
   4. Review harness/config.yml and harness/risk-matrix.yml
+  Every other clone: make setup (git hooks)
 MSG
 if [ -z "$GITHUB" ]; then
   echo "  5. Create the GitHub repository, push, then: harness/scripts/setup-repo.sh"

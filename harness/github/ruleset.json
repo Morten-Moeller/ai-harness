@@ -64,6 +64,10 @@
             "integration_id": 15368
           },
           {
+            "context": "gates (e2e)",
+            "integration_id": 15368
+          },
+          {
             "context": "risk",
             "integration_id": 15368
           },

@@ -17,7 +17,10 @@ check.
   read the repository from end to end.
 - The rule check covers: spec reference and status, ADR presence for high risk, edits to accepted
   decisions, switched-off checks, comments in code, generated files, evidence for each acceptance
-  criterion, the contract section of the spec. Do not report those again.
+  criterion, the contract section of the spec, documents whose sources changed. Do not report
+  those again.
+- A rule in `project-rules/` marked `(geprüft: <check>)` is enforced by that check in the gates.
+  Do not report it again.
 - Report only findings you verified in the code. Each one has a failure scenario: the input and
   state that produce the wrong result. Leave out guesses.
 - Categories: correctness, security, data-loss, process, simplification, efficiency,

@@ -29,7 +29,7 @@ Write the scope down before testing:
 | Changed files | Automated | Browser |
 |---|---|---|
 | only docs, tests, config | `make check` | no |
-| source paths (`harness/config.yml`) | `make check`, affected tests per `project-rules/testing.md` | yes, for every criterion that names a screen, button or text |
+| source paths (`harness/config.yml`) | `make check`, the unit, integration and end-to-end tests of the touched areas (`project-rules/testing.md`) | yes, for every criterion that names a screen, button or text and has no end-to-end test |
 | `contracts/` | `make check`, contract validation, consumers' tests | as above |
 
 No criterion names a screen: the body says `Kein Browser-Test: <Grund>`.
@@ -45,7 +45,8 @@ No criterion names a screen: the body says `Kein Browser-Test: <Grund>`.
 
 ## 4. Automated checks
 
-Run `make check` and the affected tests. Keep the output of every failing check. Never weaken a
+Run `make check` and the tests of the touched areas, end-to-end included. Test data with the steps
+of `.claude/skills/test-data/SKILL.md`. Keep the output of every failing check. Never weaken a
 check or a test to make it pass. A gate that prints `übersprungen` did not run; the line
 `Automatisch` names it, and the CI result of that gate counts.
 

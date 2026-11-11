@@ -37,6 +37,7 @@ even when `ai-review` is green.
 | `generiert` | changed files with a generated-file header | no |
 | `kriterium` | every acceptance criterion of the spec has a row with evidence in the PR body | yes |
 | `contract` | a change under `contracts/` is named in the `## Contracts` section of the spec | yes |
+| `doku` | a Markdown file with `sources:` globs in its front matter, whose sources changed while the file did not | no |
 
 The patterns for switched-off checks are the list `gate_markers` in `harness/risk-matrix.yml`.
 `risk-level.sh` reads the same list and raises a low-risk PR with such a line to medium, so it

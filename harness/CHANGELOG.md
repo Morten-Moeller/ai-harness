@@ -4,29 +4,47 @@ Versions follow semver. Breaking means: a project needs a manual step after `upd
 
 ## 0.4.0 (2026-11-11)
 
-Generated files are checked against their source; agents may edit the config and the risk matrix.
-Decision 0012.
+Checks instead of prose: generated files against their source, optional end-to-end tests in CI,
+project rules as linter rules with a ratchet, documents that name their sources. Project skills
+survive updates. Decisions 0012 to 0015.
 
 Manual steps after `update.sh`:
 
 - Run `harness/scripts/setup-repo.sh` after the merge of the update. The ruleset now requires
-  `gates (drift)`. Before that run the check is reported but not required.
-- A project with generated files: set `contracts_generate_target` in `harness/config.yml` to the
-  make target that writes them. The target must be deterministic (`harness/quality-gates.md`).
-- `AGENTS.md`: the gate list under `## Verification` becomes "test, typecheck, lint, sast, deps,
-  drift" (`harness/templates/AGENTS.md`).
-- Optional: the two new rules on generated files in `contracts/README.md` (project-owned).
+  `gates (drift)` and `gates (e2e)`; both pass without running until the project configures them.
+- `harness/config.yml` (project-owned, `update.sh` shows the diff): add `e2e_in_ci: false`, and
+  `doku` to the comment of `review_rules_disabled`. A project with generated files sets
+  `contracts_generate_target` to the make target that writes them; the target must be
+  deterministic (`harness/quality-gates.md`).
+- `Makefile` (project-owned): add the `e2e` target, a stub or the real suite; optional
+  `precommit` (`harness/templates/Makefile`).
+- `project-rules/testing.md`: take over the sections Areas, End-to-end and Test data from the
+  harness template and fill them.
+- `AGENTS.md`: the lines of `## Verification` and the test data line of
+  `harness/templates/AGENTS.md`.
+- Every clone: `make setup` once, so the git hooks run.
 
 Changes:
 
 - New gate `make drift` (`harness/scripts/drift.sh`): runs the generator target and fails when it
-  changed a file. Part of `make check` and of `quality-gates.yml`; without a generator it passes
-  and CI skips the setup action.
-- `bootstrap.sh --contracts-target <target>` sets `contracts_generate_target`.
+  changed a file. `bootstrap.sh --contracts-target <target>` sets the key.
+- New gate `make e2e`, required as `gates (e2e)`, runs in CI only with `e2e_in_ci: true`.
+  `implement` writes end-to-end tests for screen criteria when the project has them and runs the
+  specs of the touched areas; `/verify` runs them too. New skill `test-data`.
+- `project-rules/testing.md` template: test levels with the default stance (public interface, real
+  database, doubles only for other systems), areas, end-to-end, test data.
+- `harness/scripts/lint-ratchet.sh`: known lint findings per rule in `lint-baseline.txt`, counts may
+  only fall. Rules marked `(geprüft: <check>)` are skipped by the reviewer agents.
+- New review rule `doku`: a Markdown file with `sources:` globs whose sources changed while it did
+  not. `lint-baseline.txt` and `.githooks/` are gate files.
+- `update.sh` copies `.claude/skills/*/` and `.claude/agents/*.md` one by one and keeps the skills
+  and agents of the project; `[remove]` in `owned-paths.txt` deletes dropped harness paths.
+- `.githooks/pre-commit` runs `make precommit` when defined; `make setup` and `bootstrap.sh` set
+  `core.hooksPath`. The guard hook denies `--no-verify` and `git commit -n`.
+- `.gitattributes`: LF for text files.
 - The settings template no longer denies edits of `harness/config.yml` and
-  `harness/risk-matrix.yml`; both stay high risk.
-- The rule check in CI (`review-rules`) reads `harness/config.yml` from the base branch
-  (`review-rules.sh --config`), so a pull request cannot switch off rules for itself.
+  `harness/risk-matrix.yml`; both stay high risk, and the rule check in CI reads the config of the
+  base branch (`review-rules.sh --config`).
 - `/contract` adds the generator target and the config key in the same change when they are
   missing.
 

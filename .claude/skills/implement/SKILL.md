@@ -36,7 +36,9 @@ Run every step without a pause. Stop and ask only where a step says so.
   code. Simplified technical English in identifiers and messages; user-facing text through the
   project's i18n.
 - Every acceptance criterion gets the test named in the plan, failing without the change, or the
-  `/verify` check named there.
+  `/verify` check named there. A criterion that names a screen gets an end-to-end test when
+  `project-rules/testing.md` has that level.
+- Test data with the steps of `.claude/skills/test-data/SKILL.md`.
 - Contracts: with the steps of `.claude/skills/contract/SKILL.md`, never by hand.
 - **Stop and ask** with `AskUserQuestion` when the change needs files or contracts outside the
   plan that change what the spec promises, or when an edge case has no answer in the spec. No
@@ -46,10 +48,13 @@ Run every step without a pause. Stop and ask only where a step says so.
 
 1. `make check`. A gate that prints `übersprungen` has no tool on this machine; CI runs it. Note
    it for the summary.
-2. A failing gate caused by this change: fix the change. A gate that fails on the base branch as
+2. The end-to-end tests of the touched areas (`project-rules/testing.md`, table Areas, section
+   End-to-end). When the application must run first and does not, and it cannot be started from
+   this session: note the specs for the summary; CI or `/verify` runs them.
+3. A failing gate caused by this change: fix the change. A gate that fails on the base branch as
    well: report it with its output and stop. Never edit a gate, a test of someone else, an ignore
    file or a threshold.
-3. `harness/scripts/risk-level.sh --base origin/<default_branch> --include-working-tree --format
+4. `harness/scripts/risk-level.sh --base origin/<default_branch> --include-working-tree --format
    text`. A level above the one in the spec: **stop and ask** (continue with the higher level, or
    change the approach).
 
@@ -98,7 +103,8 @@ In the chat, in `doc_language`:
 
 - PR URL, risk level, the gates that apply.
 - The review result: blocking findings left, notes, one line each with file and line.
-- Gates skipped locally, failing checks with output, criteria left for `/verify` in the browser.
+- Gates skipped locally, end-to-end specs not run, failing checks with output, criteria left for
+  `/verify` in the browser.
 - The next step: low risk merges after the required checks; medium and high risk wait for the
   person's review and the label `human-approved`, then GitHub merges.
 

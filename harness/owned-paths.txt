@@ -1,8 +1,10 @@
 # Paths that harness/scripts/update.sh copies from the harness repository into a project.
 # One path per line, relative to both repositories. Directories end with a slash and are synced
-# with --delete. `src => dst` copies a file from the harness path src to the project path dst.
-# Lines starting with # are comments. Paths under [diff-only] are shown as a diff and not
-# overwritten, because the project owns them after the first copy.
+# with --delete. A path with * copies each match on its own: `.claude/skills/*/` syncs every
+# harness skill and keeps the skills of the project. `src => dst` copies a file from the harness
+# path src to the project path dst. Lines starting with # are comments. Paths under [diff-only]
+# are shown as a diff and not overwritten, because the project owns them after the first copy.
+# Paths under [remove] were harness-owned and are deleted in the project.
 
 [copy]
 harness/README.md
@@ -16,8 +18,9 @@ harness/scripts/
 harness/github/
 harness/templates/settings.json => .claude/settings.json
 .claude/hooks/
-.claude/skills/
-.claude/agents/
+.claude/skills/*/
+.claude/agents/*.md
+.githooks/
 .github/workflows/quality-gates.yml
 .github/workflows/risk-label.yml
 .github/workflows/ai-review.yml
@@ -31,3 +34,5 @@ harness/templates/Makefile => Makefile
 harness/templates/AGENTS.md => AGENTS.md
 harness/templates/CODEOWNERS => .github/CODEOWNERS
 harness/templates/setup-action.yml => .github/actions/setup/action.yml
+
+[remove]

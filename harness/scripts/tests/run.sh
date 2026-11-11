@@ -161,6 +161,12 @@ check "bootstrap leaves the generator empty by default" 'contracts_generate_targ
 target3="$TMP/bootstrap-contracts"
 "$ROOT/harness/scripts/bootstrap.sh" "$target3" --name demo3 --owner someone --no-git --contracts-target contracts >/dev/null
 check "bootstrap writes the contracts target" "contracts_generate_target: contracts" "$(grep '^contracts_generate_target:' "$target3/harness/config.yml")"
+check "bootstrapped make help lists e2e and setup" "yes" "$(make -C "$target" help 2>/dev/null | grep -q 'e2e' && make -C "$target" help 2>/dev/null | grep -q 'setup' && echo yes || echo no)"
+check "bootstrapped make e2e passes without tests" "0" "$(make -C "$target" e2e >/dev/null 2>&1; echo $?)"
+check "bootstrap copies the git hooks and attributes" "yes" "$([ -x "$target/.githooks/pre-commit" ] && [ -f "$target/.gitattributes" ] && echo yes || echo no)"
+target4="$TMP/bootstrap-git"
+"$ROOT/harness/scripts/bootstrap.sh" "$target4" --name demo4 --owner someone >/dev/null
+check "bootstrap points git to the hooks" ".githooks" "$(git -C "$target4" config core.hooksPath)"
 check "bootstrap rejects a contracts target that is no make target" "2" "$("$ROOT/harness/scripts/bootstrap.sh" "$TMP/y" --name y --no-git --contracts-target '-f x' >/dev/null 2>&1; echo $?)"
 
 # Update from the harness into the bootstrapped project
@@ -168,6 +174,19 @@ echo "changed" >> "$target/harness/workflow.md"
 "$ROOT/harness/scripts/update.sh" "$ROOT" --target "$target" >/dev/null
 check "update restores an owned file" "no" "$(grep -q '^changed$' "$target/harness/workflow.md" && echo yes || echo no)"
 check "update keeps project-owned files" "yes" "$(grep -q '^demo\.' "$target/AGENTS.md" && echo yes || echo no)"
+mkdir -p "$target/.claude/skills/orders-area"
+printf -- '---\nname: orders-area\n---\n' > "$target/.claude/skills/orders-area/SKILL.md"
+printf 'project agent\n' > "$target/.claude/agents/orders-reviewer.md"
+echo "changed" >> "$target/.claude/skills/review/SKILL.md"
+mkdir -p "$target/.claude/skills/old-harness-skill"
+up_src="$TMP/update-src"
+rsync -a --exclude .git "$ROOT/" "$up_src/"
+printf '.claude/skills/old-harness-skill/\n' >> "$up_src/harness/owned-paths.txt"
+"$up_src/harness/scripts/update.sh" "$up_src" --target "$target" >/dev/null
+check "update keeps a skill of the project" "yes" "$([ -f "$target/.claude/skills/orders-area/SKILL.md" ] && echo yes || echo no)"
+check "update keeps an agent of the project" "yes" "$([ -f "$target/.claude/agents/orders-reviewer.md" ] && echo yes || echo no)"
+check "update restores a harness skill" "no" "$(grep -q '^changed$' "$target/.claude/skills/review/SKILL.md" && echo yes || echo no)"
+check "update deletes a path under [remove]" "no" "$([ -d "$target/.claude/skills/old-harness-skill" ] && echo yes || echo no)"
 
 # Human gate
 HG="$ROOT/harness/scripts/human-gate.sh"
@@ -298,6 +317,22 @@ check "rules: generated file is reported" "nein" "$(rule_rows "$(rr)" generiert)
 printf '# Shared targets. Owned by the harness; do not edit in a project.\nx:\n' > "$RR/src/gen.ts"
 check "rules: a lower-case do-not-edit note is not a generated file" "" "$(rule_rows "$(rr)" generiert)"
 rm -f "$RR/src/gen.ts"
+printf -- '---\nsources: [src/**]\n---\n\n# Rules\n' > "$RR/docs/rules.md"
+printf -- '---\nsources:\n  - "contracts/**"\n---\n\n# API\n' > "$RR/docs/api.md"
+printf -- '---\nsources: []\n---\n\n# Empty\n' > "$RR/docs/empty.md"
+rrgit add -A && rrgit commit -q -m docs && rrgit branch -f main HEAD
+printf 'export const a = 3\n' > "$RR/src/a.ts"
+check "rules: a changed source names its document" "docs/rules.md" "$(rr | awk -F'\t' '$1 == "doku" { print $2 }')"
+printf 'more\n' >> "$RR/docs/rules.md"
+check "rules: a document changed with its source is not named" "" "$(rule_rows "$(rr)" doku)"
+rrgit checkout -q main -- docs/rules.md
+printf 'openapi: 3.1.0\n' > "$RR/contracts/api.yaml"
+check "rules: sources as a list" "docs/api.md docs/rules.md" "$(rr | awk -F'\t' '$1 == "doku" { print $2 }' | sort | tr '\n' ' ' | sed 's/ $//')"
+rm -f "$RR/contracts/api.yaml"
+rrgit checkout -q main -- src/a.ts
+printf 'no-console 3\n' > "$RR/lint-baseline.txt"
+check "rules: the lint baseline is a gate file" "nein" "$(rule_rows "$(rr)" gate)"
+rm -f "$RR/lint-baseline.txt"
 
 # Guard hook (.claude/hooks/guard-bash.sh)
 GUARD="$ROOT/.claude/hooks/guard-bash.sh"
@@ -315,6 +350,10 @@ while IFS='|' read -r expected command; do
   check "guard: $command" "$expected" "$actual"
 done <<'G'
 deny|gh pr merge 5 --squash
+deny|git commit --no-verify -m x
+deny|git commit -n -m x
+deny|git push --no-verify origin feat/x
+allow|git commit -m x
 deny|cd /x && gh pr review 5 --approve
 deny|gh label create x
 deny|gh pr edit 5 --add-label human-approved
@@ -457,6 +496,39 @@ check "drift: other uncommitted files do not count" "0" "$(drift same)"
 rm -f "$DR/notes.txt"
 check "drift: a failing generator fails" "1" "$(drift broken)"
 check "drift: a target that is no make target is a usage error" "2" "$(drift '-f')"
+
+# Lint ratchet (harness/scripts/lint-ratchet.sh)
+LR="$ROOT/harness/scripts/lint-ratchet.sh"
+BL="$TMP/lint-baseline.txt"
+printf 'no-console 3\nno-any 1\n' > "$BL"
+ratchet() { printf '%b' "$1" | "$LR" --baseline "$BL" "${@:2}" >/dev/null 2>&1; echo $?; }
+check "ratchet: equal counts pass" "0" "$(ratchet 'no-console 3\nno-any 1\n')"
+check "ratchet: a higher count fails" "1" "$(ratchet 'no-console 4\nno-any 1\n')"
+check "ratchet: a new rule with findings fails" "1" "$(ratchet 'no-console 3\nno-any 1\nno-eval 1\n')"
+check "ratchet: a lower count passes" "0" "$(ratchet 'no-console 2\n')"
+check "ratchet: --update refuses a higher count" "1" "$(ratchet 'no-console 5\n' --update)"
+check "ratchet: --update lowers" "0" "$(ratchet 'no-console 2\n' --update)"
+check "ratchet: the lowered baseline" "no-console 2" "$(grep -v '^#' "$BL")"
+rm -f "$BL"
+check "ratchet: --update writes the first baseline" "0" "$(ratchet 'no-any 7\n' --update)"
+check "ratchet: the first baseline" "no-any 7" "$(grep -v '^#' "$BL")"
+check "ratchet: an unknown argument is a usage error" "2" "$(ratchet '' --bad)"
+
+# Git hook (.githooks/pre-commit)
+HK="$TMP/hook-repo"
+mkdir -p "$HK"
+cp -R "$ROOT/.githooks" "$HK/"
+printf 'precommit: ; @touch ran.marker\n' > "$HK/Makefile"
+hkgit() { git -C "$HK" -c user.email=t@example.com -c user.name=t "$@"; }
+hkgit init -q -b main && hkgit config core.hooksPath .githooks && hkgit add -A && hkgit commit -q -m one
+check "hook: pre-commit runs make precommit" "yes" "$([ -f "$HK/ran.marker" ] && echo yes || echo no)"
+rm -f "$HK/ran.marker"
+printf 'other: ; @true\n' > "$HK/Makefile"
+hkgit add -A && hkgit commit -q -m two
+check "hook: no precommit target, no run" "no" "$([ -f "$HK/ran.marker" ] && echo yes || echo no)"
+printf 'precommit: ; @exit 1\n' > "$HK/Makefile"
+hkgit add -A
+check "hook: a failing precommit stops the commit" "1" "$(hkgit commit -q -m three >/dev/null 2>&1; echo $?)"
 
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ]

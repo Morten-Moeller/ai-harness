@@ -40,7 +40,9 @@ without that answer.
 
 Three independent sources of evidence:
 
-1. **Quality gates** in CI: `test`, `typecheck`, `lint`, `sast`, `deps`, `drift`. All required.
+1. **Quality gates** in CI: `test`, `typecheck`, `lint`, `sast`, `deps`, `drift`, `e2e`. All
+   required; `drift` and `e2e` pass without running when the project has no generator or no
+   end-to-end tests in CI.
    Locally a gate without its tool is skipped and named; CI always runs it.
 2. **Reviews**: the skill `review`, in the developer's Claude Code session, before the push and
    after every later push. A script checks the rules that need no judgement

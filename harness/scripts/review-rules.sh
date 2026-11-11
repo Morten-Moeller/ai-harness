@@ -214,7 +214,7 @@ if enabled gate; then
           add gate "$loc" process nein "Prüfung abgeschaltet, Grund im PR: $gate_reason. Code: $text"
         fi
       done
-  grep -E '(^|/)(\.gitleaks\.toml|\.gitleaksignore|osv-scanner\.toml|\.semgrepignore|\.eslintignore|\.markdownlint[^/]*|\.golangci\.[a-z]+|eslint\.config\.[a-z]+|\.eslintrc[^/]*|Makefile|[^/]+\.mk)$|(^|/)\.semgrep/' "$TMP/files" \
+  grep -E '(^|/)(\.gitleaks\.toml|\.gitleaksignore|osv-scanner\.toml|\.semgrepignore|\.eslintignore|\.markdownlint[^/]*|\.golangci\.[a-z]+|eslint\.config\.[a-z]+|\.eslintrc[^/]*|Makefile|[^/]+\.mk|lint-baseline\.txt)$|(^|/)(\.semgrep|\.githooks)/' "$TMP/files" \
     | while IFS= read -r f; do
         add gate "$f" process nein "Gate-Datei geändert. Kein automatischer Merge (harness/policies/auto-merge.md)."
       done || true
@@ -299,6 +299,62 @@ if enabled contract && [ -n "$spec_file" ] && grep -E '^contracts/' "$TMP/files"
   case "$section" in
     ""|keine*|Keine*) add contract "$spec_file" process ja "contracts/ geändert, aber die Spec nennt unter ## Contracts nichts." ;;
   esac
+fi
+
+# doku: a document whose sources changed is named for a check (decision 0014). The sources are
+# globs in its front matter: `sources: [src/orders/**, contracts/api/orders.yaml]` or a list.
+glob_to_regex() {
+  awk -v g="$1" 'BEGIN {
+    n = length(g); out = "^"
+    for (i = 1; i <= n; i++) {
+      c = substr(g, i, 1)
+      if (c == "*") {
+        if (substr(g, i + 1, 1) == "*") {
+          if (substr(g, i + 2, 1) == "/") { out = out "(.*/)?"; i += 2 } else { out = out ".*"; i += 1 }
+        } else { out = out "[^/]*" }
+      } else if (c == "?") { out = out "[^/]" }
+      else if (index(".()+^$|{}[]\\", c) > 0) { out = out "\\" c }
+      else { out = out c }
+    }
+    print out "$"
+  }'
+}
+if enabled doku; then
+  if [ -n "$HEAD_REF" ]; then
+    git -C "$ROOT" grep -l -E '^sources:' "$HEAD_REF" -- '*.md' 2>/dev/null | sed "s|^$HEAD_REF:||" > "$TMP/doc.files" || true
+  else
+    git -C "$ROOT" grep -l -E '^sources:' -- '*.md' 2>/dev/null > "$TMP/doc.files" || true
+  fi
+  while IFS= read -r doc; do
+    [ -n "$doc" ] || continue
+    grep -qxF "$doc" "$TMP/files" && continue
+    head_show "$doc" | awk '
+      function emit(g) { gsub(/^[ \t]+|[ \t]+$/, "", g); gsub(/^["\047]|["\047]$/, "", g); if (g != "") print g }
+      NR == 1 { if ($0 != "---") exit; next }
+      $0 == "---" { exit }
+      /^sources:/ {
+        v = $0; sub(/^sources:[ \t]*/, "", v)
+        if (v ~ /^\[/) { gsub(/^\[|\][ \t]*$/, "", v); k = split(v, a, ","); for (i = 1; i <= k; i++) emit(a[i]); f = 0 }
+        else if (v != "") { emit(v); f = 0 }
+        else f = 1
+        next
+      }
+      f && /^[ \t]*-/ { g = $0; sub(/^[ \t]*-/, "", g); emit(g); next }
+      { f = 0 }
+    ' > "$TMP/doc.globs" || true
+    [ -s "$TMP/doc.globs" ] || continue
+    hit=""
+    while IFS= read -r g; do
+      re=$(glob_to_regex "$g")
+      while IFS= read -r f; do
+        if [[ "$f" =~ $re ]]; then hit="$f"; break; fi
+      done < "$TMP/files"
+      [ -n "$hit" ] && break
+    done < "$TMP/doc.globs"
+    if [ -n "$hit" ]; then
+      add doku "$doc" docs nein "Quelle geändert ($hit), die Doku nicht. Prüfen, ob sie noch stimmt."
+    fi
+  done < "$TMP/doc.files"
 fi
 
 # Output: at most MAX_PER_RULE rows per rule, the rest summarised.

@@ -15,13 +15,14 @@ AI Development Harness
 │
 ├── Skills / Agents           .claude/skills/, .claude/agents/
 │   ├── /spec  /adr  /domain  /contract
-│   ├── /risk  /implement  /verify
+│   ├── /risk  /implement  /verify  test-data
 │   └── /review  rule check + code, security, architecture review by level   harness/review.md
 │                result: commit status ai-review, findings in the session
 │
 ├── Quality Gates             harness/quality-gates.md, Makefile, .github/workflows/quality-gates.yml
 │   ├── test  typecheck  lint
-│   └── sast  deps  drift
+│   ├── sast  deps  drift
+│   └── e2e (optional)  precommit (optional)
 │
 └── Policies                  harness/policies/
     ├── When is an ADR required?            adr.md
@@ -101,6 +102,8 @@ git diff --stat
 ```
 
 The script copies the harness-owned paths, keeps the project-owned ones and prints what changed.
+Skills and agents of the project next to the harness ones stay (`.claude/skills/*/` in
+`harness/owned-paths.txt`); a harness skill that the project changed is overwritten.
 The project reviews the diff and commits it as a normal pull request. Breaking changes between
 harness versions are listed in `harness/CHANGELOG.md` of the harness repository.
 
@@ -113,6 +116,8 @@ harness versions are listed in `harness/CHANGELOG.md` of the harness repository.
 | Agents do not merge, approve, force-push, push to the default branch, set labels or write commit statuses (except `review-status.sh publish` after a saved review) | the PreToolUse hook `.claude/hooks/guard-bash.sh` and `permissions.deny` `Bash(...)` rules |
 | A change passes every gate | `make check` locally, `quality-gates.yml` as required checks |
 | Committed generated files match their source | the gate `drift` (`harness/scripts/drift.sh`) |
+| Git hooks run on every commit | `.githooks/` through `make setup`; the guard hook denies `--no-verify` |
+| A project rule that a check enforces is not reviewed again | `(geprüft: <check>)` in `project-rules/`; `lint-ratchet.sh` for checks on old code |
 | Every PR passes the rule check | `review-rules` check in `ai-review.yml`, the script from the base branch |
 | Every PR has a review without blocking findings | the commit status `ai-review` of `/review`, required by the ruleset |
 | Medium and high risk need a person | `human-gate` job in `auto-merge.yml` as a required check: label `human-approved` or an approving review |

@@ -12,7 +12,7 @@ There are two paths: low risk without a person, medium and high risk after the p
 2. **`auto_merge_enabled: true`** in `harness/config.yml` of the base branch.
 3. **The base branch has required status checks** (ruleset from `setup-repo.sh`). Without them
    GitHub would merge at once, so the job does not enable auto-merge.
-4. **Every required check green**: `gates (test|typecheck|lint|sast|deps|drift)`, `risk`,
+4. **Every required check green**: `gates (test|typecheck|lint|sast|deps|drift|e2e)`, `risk`,
    `review-rules`, `ai-review`, `human-gate`. GitHub enforces this part; the job only enables
    auto-merge. `ai-review` is the commit status of `/review`: green means no blocking findings.
 

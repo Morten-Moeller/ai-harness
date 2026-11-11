@@ -1,7 +1,7 @@
 # Shared gate targets. Included by the project Makefile. Harness-owned; do not edit in a project.
 # test, typecheck and lint are defined in the project Makefile (see harness/quality-gates.md).
 
-.PHONY: check sast deps drift help
+.PHONY: check sast deps drift setup help
 
 # A missing tool skips its gate on a developer machine and fails it in CI, where CI=true is set
 # (decision 0011). Usage in a recipe: @if $(call have,<tool>,<gate>,<install hint>); then ...; fi
@@ -22,6 +22,9 @@ deps: ## Known vulnerabilities in dependencies (osv-scanner over the lock files)
 
 drift: ## Generated files match their source (contracts_generate_target in harness/config.yml)
 	@harness/scripts/drift.sh
+
+setup: ## Use the git hooks in .githooks (once per clone; pre-commit runs make precommit when defined)
+	git config core.hooksPath .githooks
 
 help: ## List every target
 	@grep -hE '^[a-zA-Z0-9_:.-]+:.*## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
