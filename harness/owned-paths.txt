@@ -26,6 +26,7 @@ harness/templates/settings.json => .claude/settings.json
 .github/workflows/risk-label.yml
 .github/workflows/ai-review.yml
 .github/workflows/auto-merge.yml
+.github/workflows/branch-cleanup.yml
 .github/pull_request_template.md
 
 [diff-only]
