@@ -6,13 +6,16 @@
 # Reads contracts_generate_target from harness/config.yml. Empty: nothing to compare. Otherwise
 # runs `make <target>` and compares the files that differ from HEAD or are untracked, before and
 # after the run. A file the generator changed means the committed copy does not match its source.
+# A stale generated file in the working tree is overwritten and counts. A regenerated file that
+# is not committed yet passes, because make check runs before the commit; CI starts from the
+# commit and finds it when it was left out.
 # The new output stays in the working tree. The generator must write the same bytes for the same
 # source; a timestamp in the output is drift on every run.
 # --print-target prints the target and exits; CI uses it to skip the setup without a generator.
 # Exit 0: no drift or no generator. Exit 1: drift or a failed generator. Exit 2: usage error.
 set -euo pipefail
 
-usage() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; }
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 PRINT_TARGET=0

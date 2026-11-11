@@ -49,6 +49,7 @@ check "dependabot major stays medium" medium "$(level --files-from "$(files pack
 check "dependabot patch with a source file is medium" medium "$(level --files-from "$(files package.json src/a.ts)" --dependabot version-update:semver-patch)"
 check "maven manifest is a dependency manifest" low "$(level --files-from "$(files backend/pom.xml)" --dependabot version-update:semver-minor)"
 check "gradle wrapper is a dependency manifest" low "$(level --files-from "$(files gradle/wrapper/gradle-wrapper.properties build.gradle.kts)" --dependabot version-update:semver-patch)"
+check "maven wrapper scripts are dependency manifests" low "$(level --files-from "$(files backend/mvnw backend/mvnw.cmd backend/.mvn/wrapper/maven-wrapper.properties backend/.mvn/wrapper/maven-wrapper.jar backend/pom.xml)" --dependabot version-update:semver-minor)"
 check "manifest with contract is high" high "$(level --files-from "$(files package.json contracts/x.yaml)")"
 
 # Escalators
@@ -85,6 +86,18 @@ diff --git a/src/a.ts b/src/a.ts
 -const password = "old";
 D
 check "keyword in a removed line does not raise" medium "$(level --files-from "$(files src/a.ts)" --diff-from "$TMP/diff-removed")"
+
+cat > "$TMP/diff-wrapper" <<'D'
+diff --git a/backend/mvnw.cmd b/backend/mvnw.cmd
+--- a/backend/mvnw.cmd
++++ b/backend/mvnw.cmd
+@@ -1 +1,2 @@
+ x
++@REM   MVNW_USERNAME/MVNW_PASSWORD - user and password for downloading maven
+D
+check "keyword in a maven wrapper script does not raise" medium "$(level --files-from "$(files backend/mvnw.cmd)" --diff-from "$TMP/diff-wrapper")"
+cat "$TMP/diff-src" >> "$TMP/diff-wrapper"
+check "keyword in source next to a wrapper still raises" high "$(level --files-from "$(files backend/mvnw.cmd src/a.ts)" --diff-from "$TMP/diff-wrapper")"
 
 cat > "$TMP/diff-skip" <<'D'
 diff --git a/tests/a.test.ts b/tests/a.test.ts
@@ -173,8 +186,10 @@ check "bootstrap rejects a contracts target that is no make target" "2" "$("$ROO
 
 # Update from the harness into the bootstrapped project
 echo "changed" >> "$target/harness/workflow.md"
+echo "changed" >> "$target/harness/owned-paths.txt"
 "$ROOT/harness/scripts/update.sh" "$ROOT" --target "$target" >/dev/null
 check "update restores an owned file" "no" "$(grep -q '^changed$' "$target/harness/workflow.md" && echo yes || echo no)"
+check "update copies a path that ends in t" "no" "$(grep -q '^changed$' "$target/harness/owned-paths.txt" && echo yes || echo no)"
 check "update keeps project-owned files" "yes" "$(grep -q '^demo\.' "$target/AGENTS.md" && echo yes || echo no)"
 mkdir -p "$target/.claude/skills/orders-area"
 printf -- '---\nname: orders-area\n---\n' > "$target/.claude/skills/orders-area/SKILL.md"
@@ -183,7 +198,8 @@ echo "changed" >> "$target/.claude/skills/review/SKILL.md"
 mkdir -p "$target/.claude/skills/old-harness-skill"
 up_src="$TMP/update-src"
 rsync -a --exclude .git "$ROOT/" "$up_src/"
-printf '.claude/skills/old-harness-skill/\nsrc/\n' >> "$up_src/harness/owned-paths.txt"
+echo "notes" > "$up_src/harness/notes.txt"
+printf '[copy]\n\tharness/notes.txt \t=>\t tools/notes.txt \t\n[remove]\n.claude/skills/old-harness-skill/\nsrc/\n' >> "$up_src/harness/owned-paths.txt"
 mkdir -p "$target/src"
 "$up_src/harness/scripts/update.sh" "$up_src" --target "$target" >/dev/null
 check "update keeps a skill of the project" "yes" "$([ -f "$target/.claude/skills/orders-area/SKILL.md" ] && echo yes || echo no)"
@@ -191,6 +207,7 @@ check "update keeps an agent of the project" "yes" "$([ -f "$target/.claude/agen
 check "update restores a harness skill" "no" "$(grep -q '^changed$' "$target/.claude/skills/review/SKILL.md" && echo yes || echo no)"
 check "update deletes a path under [remove]" "no" "$([ -d "$target/.claude/skills/old-harness-skill" ] && echo yes || echo no)"
 check "update never removes a project path" "yes" "$([ -d "$target/src" ] && echo yes || echo no)"
+check "update trims spaces and tabs around src => dst" "notes" "$(cat "$target/tools/notes.txt" 2>/dev/null)"
 
 # Human gate
 HG="$ROOT/harness/scripts/human-gate.sh"
@@ -213,6 +230,7 @@ check "gate: low passes without anything" pass "$(gate --level low --config "$c"
 check "gate: medium without label or review fails" fail "$(gate --level medium --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
 check "gate: label by a person after the push passes" pass "$(gate --level high --config "$c" --labels "risk:high,human-approved" --reviews-json "$TMP/no-reviews.json")"
 check "gate: label from before the push fails" fail "$(gate --level high --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --pushed-at 2026-11-09T13:00:00Z)"
+check "gate: a label from before the push explains the push time" yes "$("$HG" --pr 7 --sha "$SHA_A" --author author --level high --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --events-json "$TMP/label-user-noon.json" --pushed-at 2026-11-09T13:00:00Z --permissions "author=admin" 2>&1 | grep -q "first workflow run" && echo yes || echo no)"
 check "gate: label set by a bot fails" fail "$(gate --level medium --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --events-json "$TMP/label-bot-noon.json")"
 check "gate: approval by another person on the head commit passes" pass "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-a.json")"
 check "gate: approval on an older commit does not count" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/approved-b.json")"
@@ -500,6 +518,10 @@ check "drift: a changed generated file fails" "1" "$(drift changed)"
 check "drift: names the changed file" "  gen.txt" "$(grep '^  ' "$TMP/drift.out")"
 check "drift: leaves the new output in the working tree" "v2" "$(cat "$DR/gen.txt")"
 check "drift: a second run on the regenerated tree passes" "0" "$(drift changed)"
+drgit checkout -q -- gen.txt
+printf 'stale\n' > "$DR/gen.txt"
+check "drift: a stale uncommitted generated file fails" "1" "$(drift same)"
+check "drift: a regenerated file not committed yet passes locally" "0" "$(drift same)"
 drgit checkout -q -- gen.txt
 check "drift: a new generated file fails" "1" "$(drift added)"
 check "drift: names the new file" "  extra.txt" "$(grep '^  ' "$TMP/drift.out")"

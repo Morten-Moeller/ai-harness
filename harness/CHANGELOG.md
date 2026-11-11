@@ -2,6 +2,40 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.5.1 (2026-11-11)
+
+Fixes `update.sh` on macOS. The Maven wrapper counts as a dependency manifest and no longer trips
+the keyword escalator.
+
+Manual steps:
+
+- A project below 0.5.1 runs `update.sh` twice. The first run still uses the old script of the
+  project, the second the new one. The old script skips `harness/owned-paths.txt` on macOS, and
+  below 0.4.0 also the entries with `*` (`.claude/skills/*/`, `.claude/agents/*.md`). Instead of
+  two runs, the script of the harness checkout can run once:
+  `<harness>/harness/scripts/update.sh <harness> --target <project>`.
+- Optional, for Maven projects: `harness/risk-matrix.yml` (project-owned, `update.sh` shows the
+  diff) takes over the wrapper lines of the harness file: under `dependency_manifests`
+  `**/.mvn/wrapper/**` instead of `**/.mvn/wrapper/maven-wrapper.properties`, plus `**/mvnw` and
+  `**/mvnw.cmd`; the new list `keyword_exempt` with the same three patterns. Without them a
+  Dependabot update with a wrapper bump stays medium and a wrapper change by a person can become
+  high; nothing breaks.
+
+Changes:
+
+- `update.sh` trims lines with `[[:space:]]`. BSD sed reads `[ \t]` as space, backslash or the
+  letter t and cut `harness/owned-paths.txt` to `owned-paths.tx`, so the file was never copied.
+- `human-gate.sh`: the message for a label from before the push says that the push time is the
+  start of the first workflow run, a few seconds after the push.
+- `harness/risk-matrix.yml`: `**/mvnw`, `**/mvnw.cmd` and everything under `**/.mvn/wrapper/` are
+  dependency manifests. A Dependabot patch or minor update that also bumps the Maven wrapper stays
+  low instead of medium.
+- `risk-level.sh` and the new matrix list `keyword_exempt`: added lines in matching files do not
+  count for the keyword escalator. The Maven wrapper scripts name `MVNW_PASSWORD` and `tokens` in
+  comments and variables; a change that only renormalized `mvnw.cmd` was raised to high.
+- `drift.sh`: the header and two tests state what a local run finds. A stale generated file in
+  the working tree fails; a regenerated file that is not committed yet passes, CI finds it.
+
 ## 0.5.0 (2026-11-11)
 
 A baseline of architecture and test rules, so a project does not start from zero. Decision 0017.

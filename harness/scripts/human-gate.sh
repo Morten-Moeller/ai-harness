@@ -163,4 +163,4 @@ if [[ "$labeled_at" > "$PUSHED_AT" ]]; then
   pass "Risk $LEVEL: label '$label' set by a person at $labeled_at, after the push of $short at $PUSHED_AT (G2)."
 fi
 remove_stale "$label"
-fail "Risk $LEVEL: the label '$label' dates from $labeled_at, before the push of $short at $PUSHED_AT. Review the new commits, then set the label again."
+fail "Risk $LEVEL: the label '$label' dates from $labeled_at, before the push of $short at $PUSHED_AT. The push time is the start of the first workflow run of the commit, a few seconds after the push, so a label set within those seconds counts as before it. Review the new commits, then set the label again."
