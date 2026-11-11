@@ -2,6 +2,34 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.4.0 (2026-11-11)
+
+Generated files are checked against their source; agents may edit the config and the risk matrix.
+Decision 0012.
+
+Manual steps after `update.sh`:
+
+- Run `harness/scripts/setup-repo.sh` after the merge of the update. The ruleset now requires
+  `gates (drift)`. Before that run the check is reported but not required.
+- A project with generated files: set `contracts_generate_target` in `harness/config.yml` to the
+  make target that writes them. The target must be deterministic (`harness/quality-gates.md`).
+- `AGENTS.md`: the gate list under `## Verification` becomes "test, typecheck, lint, sast, deps,
+  drift" (`harness/templates/AGENTS.md`).
+- Optional: the two new rules on generated files in `contracts/README.md` (project-owned).
+
+Changes:
+
+- New gate `make drift` (`harness/scripts/drift.sh`): runs the generator target and fails when it
+  changed a file. Part of `make check` and of `quality-gates.yml`; without a generator it passes
+  and CI skips the setup action.
+- `bootstrap.sh --contracts-target <target>` sets `contracts_generate_target`.
+- The settings template no longer denies edits of `harness/config.yml` and
+  `harness/risk-matrix.yml`; both stay high risk.
+- The rule check in CI (`review-rules`) reads `harness/config.yml` from the base branch
+  (`review-rules.sh --config`), so a pull request cannot switch off rules for itself.
+- `/contract` adds the generator target and the config key in the same change when they are
+  missing.
+
 ## 0.3.0 (2026-11-10)
 
 Fewer interruptions: two decisions per feature (spec approval, label), no review comments.

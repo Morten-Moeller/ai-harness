@@ -155,6 +155,13 @@ check "bootstrap writes the source paths" "$(printf '  - frontend/src\n  - backe
 check "bootstrap keeps the key after the source paths" "yes" "$(grep -q '^contracts_generate_target:' "$target2/harness/config.yml" && echo yes || echo no)"
 check "bootstrap rejects a bad --github" "2" "$("$ROOT/harness/scripts/bootstrap.sh" "$TMP/x" --name x --github 'not a repo' >/dev/null 2>&1; echo $?)"
 check "bootstrapped make help works" "yes" "$(make -C "$target" help 2>/dev/null | grep -q 'sast' && echo yes || echo no)"
+check "bootstrapped make help lists drift" "yes" "$(make -C "$target" help 2>/dev/null | grep -q 'drift' && echo yes || echo no)"
+check "bootstrap lets agents edit the config and the risk matrix" "0" "$(jq '[.permissions.deny[] | select(test("config.yml|risk-matrix.yml"))] | length' "$target/.claude/settings.json")"
+check "bootstrap leaves the generator empty by default" 'contracts_generate_target: ""' "$(grep '^contracts_generate_target:' "$target/harness/config.yml")"
+target3="$TMP/bootstrap-contracts"
+"$ROOT/harness/scripts/bootstrap.sh" "$target3" --name demo3 --owner someone --no-git --contracts-target contracts >/dev/null
+check "bootstrap writes the contracts target" "contracts_generate_target: contracts" "$(grep '^contracts_generate_target:' "$target3/harness/config.yml")"
+check "bootstrap rejects a contracts target that is no make target" "2" "$("$ROOT/harness/scripts/bootstrap.sh" "$TMP/y" --name y --no-git --contracts-target '-f x' >/dev/null 2>&1; echo $?)"
 
 # Update from the harness into the bootstrapped project
 echo "changed" >> "$target/harness/workflow.md"
@@ -258,6 +265,9 @@ check "rules: comment in source is reported, not blocking" "nein" "$(rule_rows "
 printf 'doc_language: de\nsource_paths:\n  - src\nreview_rules_disabled:\n  - kommentar\n' > "$RR/harness/config.yml"
 check "rules: disabled rule is skipped" "" "$(rule_rows "$(rr)" kommentar)"
 rrgit checkout -q main -- harness/config.yml
+printf 'review_rules_disabled:\n  - kommentar\n' > "$TMP/rr-base-config.yml"
+rr >/dev/null
+check "rules: --config replaces the config of the checkout" "" "$(rule_rows "$("$RR/harness/scripts/review-rules.sh" --files-from "$TMP/rr.files" --diff-from "$TMP/rr.diff" --body-from "$TMP/rr.body" --title "$RR_TITLE" --base-ref main --config "$TMP/rr-base-config.yml" --format tsv 2>/dev/null || true)" kommentar)"
 printf 'export const a = 1\nit.skip("slow", () => {})\n' > "$RR/src/a.ts"
 check "rules: switched-off test without reason blocks" "ja" "$(rule_rows "$(rr)" gate)"
 RR_BODY=$'| A1 | t |\n| A2 | t |\nGate-Änderung: upstream outage, ticket 12'
@@ -409,6 +419,44 @@ printf '%s\n' "$c3" > "$TMP/commits3"
 check "status: last prints nothing without a saved result" "" "$(cd "$SR" && "$RS" last --commits-from "$TMP/commits3")"
 (cd "$SR" && PATH="$TMP/bin:$PATH" "$RS" publish --sha "$c1" --repo o/r --note "übernommen von 2222222" >/dev/null)
 check "status: publish puts the note first" "description=übernommen von 2222222; Code, Sicherheit: 1 blockierend, 2 Hinweise" "$(grep '^description=' "$TMP/gh-args")"
+
+# Drift of generated files (harness/scripts/drift.sh)
+DR="$TMP/drift"
+mkdir -p "$DR/harness/scripts"
+cp "$ROOT/harness/scripts/drift.sh" "$DR/harness/scripts/"
+cat > "$DR/Makefile" <<'MK'
+same: ; @printf 'v1\n' > gen.txt
+changed: ; @printf 'v2\n' > gen.txt
+added: ; @printf 'x\n' > extra.txt
+broken: ; @exit 3
+MK
+printf 'contracts_generate_target: ""\n' > "$DR/harness/config.yml"
+printf 'v1\n' > "$DR/gen.txt"
+drgit() { git -C "$DR" -c user.email=t@example.com -c user.name=t "$@"; }
+drgit init -q -b main && drgit add -A && drgit commit -q -m base
+drift() {
+  printf 'contracts_generate_target: %s\n' "$1" > "$DR/harness/config.yml"
+  "$DR/harness/scripts/drift.sh" > "$TMP/drift.out" 2>&1
+  echo $?
+}
+check "drift: no generator passes" "0" "$(drift '""')"
+check "drift: no generator says so" "yes" "$(grep -q 'kein Generator' "$TMP/drift.out" && echo yes || echo no)"
+check "drift: --print-target prints nothing without a generator" "" "$("$DR/harness/scripts/drift.sh" --print-target)"
+check "drift: generator output equal to the commit passes" "0" "$(drift same)"
+check "drift: --print-target prints the target" "same" "$("$DR/harness/scripts/drift.sh" --print-target)"
+check "drift: a changed generated file fails" "1" "$(drift changed)"
+check "drift: names the changed file" "  gen.txt" "$(grep '^  ' "$TMP/drift.out")"
+check "drift: leaves the new output in the working tree" "v2" "$(cat "$DR/gen.txt")"
+check "drift: a second run on the regenerated tree passes" "0" "$(drift changed)"
+drgit checkout -q -- gen.txt
+check "drift: a new generated file fails" "1" "$(drift added)"
+check "drift: names the new file" "  extra.txt" "$(grep '^  ' "$TMP/drift.out")"
+rm -f "$DR/extra.txt"
+printf 'local work\n' > "$DR/notes.txt"
+check "drift: other uncommitted files do not count" "0" "$(drift same)"
+rm -f "$DR/notes.txt"
+check "drift: a failing generator fails" "1" "$(drift broken)"
+check "drift: a target that is no make target is a usage error" "2" "$(drift '-f')"
 
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ]

@@ -13,6 +13,7 @@ target names; the project fills them with its tools.
 | `make lint` | style and static rules | stub, exits 1 with a message | yes, required |
 | `make sast` | static application security testing, secrets | `semgrep --config auto`, `gitleaks detect` | optional additions |
 | `make deps` | known vulnerabilities in dependencies | `osv-scanner` over the lock files | optional additions |
+| `make drift` | committed generated files match their source | runs `contracts_generate_target` of `harness/config.yml`, passes when it is empty | the generator target |
 | `make check` | all of the above | fixed | no |
 
 The stubs fail on purpose. A project that has not filled a target cannot pass CI, so no gate is
@@ -29,10 +30,11 @@ Rules for every target:
 
 ## CI mapping
 
-`.github/workflows/quality-gates.yml` runs a matrix over `test typecheck lint sast deps`. Every job
-checks out the code, runs `.github/actions/setup` (project-owned: toolchain, caches, dependency
-install), then `make <gate>`. The check names are `gates (test)`, `gates (typecheck)` and so on;
-`harness/github/ruleset.json` lists them as required.
+`.github/workflows/quality-gates.yml` runs a matrix over `test typecheck lint sast deps drift`.
+Every job checks out the code, runs `.github/actions/setup` (project-owned: toolchain, caches,
+dependency install), then `make <gate>`. `drift` skips the setup when no generator is configured.
+The check names are `gates (test)`, `gates (typecheck)` and so on; `harness/github/ruleset.json`
+lists them as required.
 
 A gate whose tool is missing on a developer machine prints `übersprungen` and passes there; in CI,
 where `CI=true` is set, it fails (`have` in `harness/gates.mk`, decision 0011). Use the same macro
@@ -53,6 +55,25 @@ Both defaults are stack-neutral and read the repository as files. They need no b
 
 Dependabot (`.github/dependabot.yml`) opens the update PRs; `deps` is the gate that catches what is
 already in the tree.
+
+## Generated files
+
+`make drift` (`harness/scripts/drift.sh`, decision 0012) runs the make target named in
+`contracts_generate_target` and fails when it changed a file: the committed generated copy does
+not match its source. The new output stays in the working tree; review it and commit it with the
+source. Locally the gate compares only what the generator touched, so other uncommitted work does
+not count.
+
+Rules for the generator target:
+
+- It writes every generated file the project commits: contracts, API types, client code.
+- The same source gives the same bytes. No timestamps, no unsorted maps, no absolute paths.
+- It needs no running service; a build is fine (`mvn package`, `dotnet build`).
+- A tool that is missing locally uses `have` like the other gates; CI runs it.
+
+Set the key at project start (`bootstrap.sh --contracts-target <target>`) or in the change that
+adds the generator. A change to `harness/config.yml` is high risk; CI judges it by the config of
+the base branch.
 
 ## Filling the stubs
 

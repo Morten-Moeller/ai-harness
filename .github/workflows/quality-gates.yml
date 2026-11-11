@@ -2,6 +2,7 @@ name: Quality gates
 
 # One job per gate. Every job runs the project's setup action, then `make <gate>`.
 # The check names `gates (test)` ... are required by harness/github/ruleset.json.
+# `drift` skips the setup when harness/config.yml names no generator (decision 0012).
 
 on:
   pull_request:
@@ -24,12 +25,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        gate: [test, typecheck, lint, sast, deps]
+        gate: [test, typecheck, lint, sast, deps, drift]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
+      - name: Setup needed
+        id: need
+        env:
+          GATE: ${{ matrix.gate }}
+        run: |
+          if [ "$GATE" = drift ] && [ -z "$(harness/scripts/drift.sh --print-target)" ]; then
+            echo "setup=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "setup=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: ./.github/actions/setup
+        if: ${{ steps.need.outputs.setup == 'true' }}
 
       - run: make ${{ matrix.gate }}

@@ -21,7 +21,7 @@ AI Development Harness
 │
 ├── Quality Gates             harness/quality-gates.md, Makefile, .github/workflows/quality-gates.yml
 │   ├── test  typecheck  lint
-│   └── sast  deps
+│   └── sast  deps  drift
 │
 └── Policies                  harness/policies/
     ├── When is an ADR required?            adr.md
@@ -108,9 +108,11 @@ harness versions are listed in `harness/CHANGELOG.md` of the harness repository.
 
 | Rule | Enforced by |
 |---|---|
-| Agents do not edit `AGENTS.md`, `CLAUDE.md`, the policies, the risk matrix, the config, the hooks | `permissions.deny` `Edit(...)` rules in `.claude/settings.json`; the guard hook for shell writes |
+| Agents do not edit `AGENTS.md`, `CLAUDE.md`, the policies, `human-gate.sh`, `auto-merge.yml`, the settings, the hooks | `permissions.deny` `Edit(...)` rules in `.claude/settings.json`; the guard hook for shell writes |
+| A pull request is not judged by rules it changes itself | CI reads the risk matrix, the config and the rule scripts from the base branch; changes to them are high risk |
 | Agents do not merge, approve, force-push, push to the default branch, set labels or write commit statuses (except `review-status.sh publish` after a saved review) | the PreToolUse hook `.claude/hooks/guard-bash.sh` and `permissions.deny` `Bash(...)` rules |
 | A change passes every gate | `make check` locally, `quality-gates.yml` as required checks |
+| Committed generated files match their source | the gate `drift` (`harness/scripts/drift.sh`) |
 | Every PR passes the rule check | `review-rules` check in `ai-review.yml`, the script from the base branch |
 | Every PR has a review without blocking findings | the commit status `ai-review` of `/review`, required by the ruleset |
 | Medium and high risk need a person | `human-gate` job in `auto-merge.yml` as a required check: label `human-approved` or an approving review |
@@ -126,14 +128,13 @@ guard; it is a policy violation.
 
 The harness repository has no specs of its own, because `docs/` is the template for projects. A
 decision record in `harness/decisions/` takes the place of the spec and the ADR; the rule check
-accepts it. Its `.claude/settings.json` allows agents to edit the policies, the risk matrix and
-the config, `human-gate.sh`, `auto-merge.yml` and the hooks, so the harness can be developed with
-agents; `AGENTS.md`, `CLAUDE.md` and the settings stay denied. Every change to these files is high
-risk, so the label of a person covers it. Sync the settings after a change to the template:
+accepts it. Its `.claude/settings.json` allows agents to edit the policies, `human-gate.sh`,
+`auto-merge.yml` and the hooks, so the harness can be developed with agents; `AGENTS.md`,
+`CLAUDE.md` and the settings stay denied. Every change to these files is high risk, so the label
+of a person covers it. Sync the settings after a change to the template:
 
 ```bash
-jq '.permissions.deny -= ["Edit(./harness/policies/**)", "Edit(./harness/risk-matrix.yml)",
-  "Edit(./harness/config.yml)", "Edit(./harness/scripts/human-gate.sh)",
+jq '.permissions.deny -= ["Edit(./harness/policies/**)", "Edit(./harness/scripts/human-gate.sh)",
   "Edit(./.github/workflows/auto-merge.yml)", "Edit(./.claude/hooks/**)"]' \
   harness/templates/settings.json > .claude/settings.json
 ```

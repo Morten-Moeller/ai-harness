@@ -51,8 +51,6 @@
       "Edit(./AGENTS.md)",
       "Edit(./CLAUDE.md)",
       "Edit(./harness/policies/**)",
-      "Edit(./harness/risk-matrix.yml)",
-      "Edit(./harness/config.yml)",
       "Edit(./harness/scripts/human-gate.sh)",
       "Edit(./.github/workflows/auto-merge.yml)",
       "Edit(./.claude/settings.json)",

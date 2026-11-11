@@ -20,7 +20,11 @@ contracts/
 - Breaking changes need an ADR (`harness/policies/adr.md`) and a migration path for every consumer.
 - Generated contracts are never hand-edited. The target in `harness/config.yml`
   (`contracts_generate_target`) regenerates them; the generated files and their source change in
-  one commit. `/contract` enforces this.
+  one commit. `/contract` enforces this, and the gate `make drift` fails when a committed copy
+  does not match its source (`harness/quality-gates.md`). After a merge or a rebase that touched
+  a source, run the target instead of resolving a conflict in a generated file by hand.
+- Mark generated paths in `.gitattributes` with `linguist-generated=true`, so GitHub folds them in
+  the pull request view. Never `-diff`: the review reads the diff of every file.
 - A contract file carries a header that names its source and its generator when it is generated.
 - Versioning: additive changes keep the version, breaking changes bump it and keep the old
   version until every consumer has moved.

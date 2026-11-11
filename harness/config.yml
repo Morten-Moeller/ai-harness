@@ -14,7 +14,9 @@ default_branch: main
 source_paths:
   - src
 
-# Where the generated contracts live and which make target regenerates them. Empty = none.
+# Make target that regenerates the committed generated files (contracts, API types). The gate
+# `make drift` runs it and fails when a committed copy differs (harness/quality-gates.md).
+# Empty = no generated files.
 contracts_generate_target: ""
 
 # The size escalator: more changed lines than this raises low to medium.
