@@ -15,8 +15,7 @@ G3). The risk level (`risk.md`) decides which gates apply to a change.
 - **G0**: the person answers the approval question of `/spec` in the session. Only on that answer
   the skill writes `status: approved` in the spec front matter and commits it with the name of
   the person and the date. `/roadmap` asks once for a whole wave; the answer is G0 for each of its
-  specs. A person may
-  also set the status by hand.
+  specs. A person may also set the status by hand.
 - **G1**: the plan is the section `## Umsetzung` of the spec and is approved with it. `implement`
   stops and asks when the change leaves the plan: a higher risk level, files or contracts that
   change what the spec promises, an edge case without an answer.

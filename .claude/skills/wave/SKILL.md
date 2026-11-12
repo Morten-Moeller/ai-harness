@@ -31,7 +31,9 @@ remove (changes, untracked files) stays; name it in the summary.
    - `unchecked`, `no-paths`: that spec waits; its plan needs full paths under `Dateien:`.
 4. At most `parallel_max` specs run (`harness/config.yml`, 3 when the key is missing); the others
    wait.
-5. Print the plan: the specs that run, the specs that wait with the reason. None runs: stop.
+5. Print the plan: the specs that run, the specs that wait with the reason, and the command
+   `worktree_setup` (`harness/config.yml`) that every worker runs in its worktree. None runs:
+   stop.
 
 ## 3. Start
 

@@ -13,10 +13,11 @@ usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' 
 
 DIR=""
 OPEN=0
+need() { [ "$#" -ge 2 ] || { echo "$1 needs a value" >&2; exit 2; }; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --open) OPEN=1; shift ;;
-    --dir) DIR="$2"; shift 2 ;;
+    --dir) need "$@"; DIR="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac

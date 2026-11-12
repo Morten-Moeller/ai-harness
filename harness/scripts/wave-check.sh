@@ -6,12 +6,12 @@
 #   wave-check.sh [--matrix <file>] <spec.md> <spec.md> ...
 #
 # One line per finding, tab-separated:
-#   overlap    <spec> <spec> <path>      both specs change the path
+#   overlap    <spec> <spec> <path>      both specs change the path, or a file in the directory
 #   exclusive  <spec> <spec> <pattern>   both change a path of wave_exclusive (harness/risk-matrix.yml)
 #   unchecked  <spec> <path>             not a full path (.../, *, |, <...>), cannot be compared
 #   no-paths   <spec>                    no `Dateien:` list
 # A path is the first backticked word of a list item, or every backticked word before the first
-# "`:" of the item. Without the key wave_exclusive in the matrix, contracts/** and migration
+# "`:" of the item; a leading ./ is dropped, a trailing / marks a directory. Without the key wave_exclusive in the matrix, contracts/** and migration
 # directories are exclusive. Exit 0 without findings, 1 with findings, 2 on a usage error.
 set -euo pipefail
 
@@ -20,9 +20,10 @@ usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 MATRIX="$ROOT/harness/risk-matrix.yml"
 SPECS=()
+need() { [ "$#" -ge 2 ] || { echo "$1 needs a value" >&2; exit 2; }; }
 while [ $# -gt 0 ]; do
   case "$1" in
-    --matrix) MATRIX="$2"; shift 2 ;;
+    --matrix) need "$@"; MATRIX="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) SPECS+=("$1"); shift ;;
@@ -83,6 +84,7 @@ paths_of() { # <spec> -> one path per line, prefixed "ok<TAB>" or "bad<TAB>"
       while (match(item, /`[^`]*`/)) {
         p = substr(item, RSTART + 1, RLENGTH - 2)
         item = substr(item, RSTART + RLENGTH)
+        sub(/^(\.\/)+/, "", p)
         if (p == "") continue
         bad = (p ~ /^\.\.\.|\.\.\.\/|…|\*|\||</ || p ~ /^\//)
         print (bad ? "bad" : "ok") "\t" p
@@ -124,7 +126,13 @@ a=0
 while [ "$a" -lt "$n" ]; do
   b=$((a + 1))
   while [ "$b" -lt "$n" ]; do
-    comm -12 "$TMP/paths.$a" "$TMP/paths.$b" | while IFS= read -r p; do
+    { comm -12 "$TMP/paths.$a" "$TMP/paths.$b"
+      awk 'NR == FNR { x[++n] = $0; next }
+        { for (i = 1; i <= n; i++) {
+            if (x[i] ~ /\/$/ && index($0, x[i]) == 1 && $0 != x[i]) print x[i]
+            if ($0 ~ /\/$/ && index(x[i], $0) == 1 && x[i] != $0) print $0
+          } }' "$TMP/paths.$a" "$TMP/paths.$b"
+    } | sort -u | while IFS= read -r p; do
       printf 'overlap\t%s\t%s\t%s\n' "${ids[$a]}" "${ids[$b]}" "$p"
     done >> "$TMP/findings"
     sort -u "$TMP/excl.$a" > "$TMP/ea"; sort -u "$TMP/excl.$b" > "$TMP/eb"
