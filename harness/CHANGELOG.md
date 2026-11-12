@@ -2,6 +2,56 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.7.0 (2026-11-12)
+
+Roadmap and parallel waves (decisions 0019 and 0020). `/roadmap` turns an overall goal into specs
+in waves with one approval, `/wave` implements the specs of a wave at the same time, one worktree
+and one `implementer` agent per spec. The plan of a spec starts with a short block
+`Entscheidungen` for the person. The state of a spec moves from the table in
+`docs/specs/README.md` into its front matter, so parallel branches no longer conflict on it.
+
+Manual steps, all optional until the first `/wave`:
+
+- `docs/specs/README.md` (project-owned): move the state into the specs, once. For each row write
+  `pr` (`"#<n>"`), `updated` (column `Stand`) and `note` (column `Notiz`) into the front matter of
+  its spec; for each row of `Entscheidungen` add `- [x] <Frage> → <Antwort> (<Wer>, <Datum>)` under
+  `## Offene Fragen` of its spec. Then replace the file with the harness copy, which has no tables.
+  `make specs` prints the overview; until the move it shows `–` for the PR.
+- `docs/specs/0000-template.md` (project-owned, now under `[diff-only]`, so `update.sh` shows the
+  diff): the front matter fields `updated`, `pr`, `note`, the block `Entscheidungen` at the start of
+  `## Umsetzung`, full paths under `Dateien:`, answered questions kept in the spec.
+- `harness/config.yml`: the keys `parallel_max` (default 3) and `worktree_setup` (default
+  `make setup`; add the dependency install of the project, a worktree starts without
+  `node_modules` or build output).
+- `harness/risk-matrix.yml`: the list `wave_exclusive`; without it `contracts/**` and migration
+  directories count. Add the generated files of the project.
+- `.gitignore`: `.claude/worktrees/`.
+- Before the first parallel wave: tests that bind a fixed port follow the new rule T3.6 (Quarkus:
+  `quarkus.http.test-port=0`), or an ADR replaces it and `parallel_max` is 1.
+
+Changes:
+
+- Skill `roadmap` with `template.md`: asks about goal, users, non-goals, quality targets and
+  constraints, writes `docs/roadmap.md`, ADRs for the basic decisions and the specs of the next
+  wave, asks once for approval (G0 for every spec of the wave), commits each spec on its own
+  branch, continues with `implement` or `wave`. Wave 1 of a new project is the skeleton alone.
+- Skill `wave` and agent `implementer` (`isolation: worktree`): `wave-check.sh` and
+  `parallel_max` decide what runs; each worker runs `implement --worker` up to a verified pull
+  request; questions come back to the session and go to the person in one question; one summary
+  table. Worktrees of merged branches are removed at the next run.
+- `harness/scripts/specs.sh` (`make specs`): the spec overview from the front matter; the
+  SessionStart hook prints the open specs with it.
+- `harness/scripts/wave-check.sh`: compares the paths under `Dateien:` of several specs, the list
+  `wave_exclusive`, and reports abbreviated paths.
+- `harness/scripts/app-lock.sh`: one lock per repository in the git common directory; `verify` and
+  the end-to-end step of `implement` start the application only under it.
+- Skill `spec`: numbers count the roadmap and the branches, the block `Entscheidungen` in the plan
+  and in the approval summary, full paths, no table row. Skill `implement`: worker mode, state in
+  the front matter, stops for a decision the block does not name. Skill `verify`: state in the front
+  matter, the lock around the application.
+- `harness/testing.md`: T3.6 free ports for tests. `harness/workflow.md`, `harness/README.md`,
+  `harness/policies/human-approval.md`: roadmap, waves, state in the front matter.
+
 ## 0.6.0 (2026-11-11)
 
 Verification before the merge (decision 0018). `implement` runs `verify` for medium and high risk
