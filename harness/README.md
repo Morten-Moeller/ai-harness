@@ -14,8 +14,9 @@ AI Development Harness
 │   └── Risk Assessment       harness/policies/risk.md, harness/risk-matrix.yml
 │
 ├── Skills / Agents           .claude/skills/, .claude/agents/
-│   ├── /spec  /adr  /domain  /contract
-│   ├── /risk  /implement  /verify  test-data
+│   ├── /roadmap  /spec  /adr  /domain  /contract
+│   ├── /risk  /implement  /verify  /wave  test-data
+│   ├── implementer agent: one spec of a wave in its own worktree
 │   └── /review  rule check + code, security, architecture review by level   harness/review.md
 │                result: commit status ai-review, findings in the session
 │
@@ -39,7 +40,8 @@ Project Context
 ├── docs/
 │   ├── domain/               glossary, bounded contexts, invariants
 │   ├── adr/                  architecture decision records
-│   ├── specs/                one spec per change, status table in README.md
+│   ├── roadmap.md            goal, waves of specs (/roadmap)
+│   ├── specs/                one spec per change, state in its front matter (make specs)
 │   └── architecture/         system overview, module boundaries
 ├── contracts/                API, event and schema contracts
 ├── project-rules/            frontend.md, backend.md, testing.md
@@ -50,6 +52,8 @@ Project Context
 
 1. `/spec <topic>` asks, writes the spec with its implementation plan and ends with one question:
    approve and implement, approve only, or change. The answer of the person is gates G0 and G1.
+   For a new project or a larger goal `/roadmap` does this for a whole wave of specs, and `wave`
+   implements them in parallel, one worktree per spec.
 2. `implement` follows the plan: code and tests, `make check`, a review of the branch with fixes
    for blocking findings, push, pull request, the commit status `ai-review`, waiting for CI. For
    medium and high risk it then runs `verify`: the acceptance criteria, the evidence in the PR

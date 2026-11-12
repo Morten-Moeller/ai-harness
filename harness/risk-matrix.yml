@@ -142,3 +142,11 @@ gate_markers:
   - 'SuppressMessage'
   - '#pragma[[:space:]]+warning[[:space:]]+disable'
   - '(istanbul|c8)[[:space:]]+ignore'
+
+# Paths of which only one spec of a wave may change something (harness/scripts/wave-check.sh,
+# decision 0020). Two specs that both touch a match do not run at the same time. Add the generated
+# files of the project. Without this key: contracts/**, **/migration/**, **/migrations/**.
+wave_exclusive:
+  - "contracts/**"
+  - "**/migration/**"
+  - "**/migrations/**"

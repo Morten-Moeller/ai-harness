@@ -1,20 +1,17 @@
 # Specs
 
 Eine Spec pro Änderung. Datei `NNNN-<slug>.md` aus `0000-template.md`, vierstellige Nummer,
-nächste freie. Status und Gates: `harness/workflow.md`. Eine Zeile pro Spec; Skills ändern nur
-ihre Zeile.
+nächste freie (`/spec` zählt auch die Roadmap und die Branches mit). Status und Gates:
+`harness/workflow.md`. Mehrere Specs zu einem Gesamtziel: `/roadmap`, `docs/roadmap.md`.
 
-Status: `draft` → `approved` (Freigabe einer Person, in der Session über `/spec` oder von Hand) →
-`in Arbeit` → `Review` → `done`. `done` schreibt `verify` (bei low `implement`) vor dem Merge auf
-den PR-Branch; auf `main` steht es erst mit dem Merge. `blockiert` wartet auf eine Entscheidung,
-die Notiz nennt sie.
+Der Stand jeder Spec steht nur in ihrem Frontmatter: `status`, `pr`, `updated`, `note`. Skills
+ändern nur das Frontmatter ihrer Spec. Die Übersicht: `make specs`
+(`harness/scripts/specs.sh`, mit `--open` nur die offenen).
 
-| Spec | Titel | Risiko | Status | PR | Stand | Notiz |
-|---|---|---|---|---|---|---|
+Status: `draft` → `approved` (Freigabe einer Person, in der Session über `/spec` oder
+`/roadmap`, oder von Hand) → `in Arbeit` → `Review` → `done`. `done` schreibt `verify` (bei low
+`implement`) vor dem Merge auf den PR-Branch; auf `main` steht es erst mit dem Merge. `blockiert`
+wartet auf eine Entscheidung, `note` nennt sie.
 
-## Entscheidungen
-
-Offene Fragen aus Specs, die eine Person beantwortet. Beantwortete Zeilen bleiben stehen.
-
-| Datum | Spec | Frage | Entscheidung | Wer |
-|---|---|---|---|---|
+Beantwortete offene Fragen bleiben in ihrer Spec unter `## Offene Fragen`, mit Antwort, Person und
+Datum.

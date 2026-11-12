@@ -45,6 +45,14 @@ second_reviewer_for: ""
 # Pull requests by bots are exempt.
 verify_required_for: high
 
+# /wave (decision 0020): at most this many specs are implemented at the same time, one worktree
+# and one implementer agent each. 1 runs one spec at a time.
+parallel_max: 3
+
+# Command a worker runs in its new worktree before it implements, as one quoted string. Add the
+# dependency install of the project, for example "make setup && pnpm -C frontend install".
+worktree_setup: "make setup"
+
 # /review (harness/review.md): one combined agent run when the diff under review (the whole PR, or
 # the delta of an incremental run) changes at most this many lines.
 # The model and effort of the reviewer agents are set in .claude/agents/*.md.

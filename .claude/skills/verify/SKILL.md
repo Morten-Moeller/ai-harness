@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Verify an open pull request against the acceptance criteria of its spec before the merge - run make check and the affected tests, walk the application when a criterion names a screen, write the result table into the PR body, set the spec row to done or in Arbeit and the commit status verified that the human gate reads for G3.
+description: Verify an open pull request against the acceptance criteria of its spec before the merge - run make check and the affected tests, walk the application when a criterion names a screen, write the result table into the PR body, set the spec to done or in Arbeit and the commit status verified that the human gate reads for G3.
 when_to_use: Load when the user runs /verify, from implement once CI passed on a medium or high risk pull request, or after a push of this session to an open medium or high risk pull request whose head has no status verified. Never for a merged or closed pull request.
 argument-hint: <PR number | spec id>
 ---
@@ -9,14 +9,16 @@ argument-hint: <PR number | spec id>
 
 Stage 3 of `harness/workflow.md`, before the merge decision (gate G3,
 `harness/policies/human-approval.md`). The merge is never part of this skill. The result is the
-criteria table in the PR body, the spec row and the commit status `verified` on the head.
+criteria table in the PR body, the state in the spec front matter and the commit status
+`verified` on the head.
 
 ## 1. Resolve and gate
 
 1. Argument is a PR number or a spec id. From a PR: `gh pr view <n> --json state,title,headRefName,
    headRefOid,baseRefName,body,files,statusCheckRollup`; the spec id is in the title `(NNNN)`, the
-   body or the branch name `<type>/<NNNN>-<slug>`. From a spec id: the `PR` column of the row.
-   No PR: report and stop.
+   body or the branch name `<type>/<NNNN>-<slug>`. From a spec id: the field `pr` of its front
+   matter, otherwise the open PR of its branch (`gh pr list --head <branch>`). No PR: report and
+   stop.
 2. `state` must be `OPEN`. A merged or closed PR: report and stop; a finding after the merge is a
    new change.
 3. Read the spec: acceptance criteria, verification plan. In the harness repository
@@ -46,7 +48,11 @@ No criterion names a screen: the body says `Kein Browser-Test: <Grund>`.
    `git merge-base --is-ancestor origin/<base> HEAD`. Behind the base: note it in the body, do
    not rebase.
 3. The project's services, when the criteria need them: start or ask as `project-rules/testing.md`
-   says. Ask the person with `AskUserQuestion` when a service runs outside this session.
+   says. Ask the person with `AskUserQuestion` when a service runs outside this session. Start the
+   application only under the lock (decision 0020):
+   `harness/scripts/app-lock.sh acquire --owner <headRefName> --wait 540`; still busy: try again.
+   Release it with `harness/scripts/app-lock.sh release --owner <headRefName>` once the services
+   are stopped after step 5, also when a check failed.
 
 ## 4. Automated checks
 
@@ -85,18 +91,19 @@ Browser: <Umfang | Kein Browser-Test: Grund>
 
 The output of a failing check goes to the chat, not into the body.
 
-## 7. Row
+## 7. Spec state
 
 Passed means: every check green and no criterion `nicht erfüllt`. `nicht prüfbar` alone does not
 block it; name it in the summary so the person decides.
 
-- Passed: `Status` = `done`, `PR` = `#<n>`; also `status: done` in the spec frontmatter. The row
-  reaches the default branch only with the merge, so `done` is true there. Otherwise `in Arbeit`.
-- `Stand` = today. `Notiz` = criteria `nicht prüfbar` or the failing check, one line.
-- Commit only the row and the frontmatter on the PR branch: `docs(specs): <NNNN> <done|in Arbeit>
-  nach Test`, with the attribution line from the session. Push. Then run the skill `review` with
-  `<n>`; the new commit changes only `docs/specs/`, so its state is `übernommen`.
-- No spec row (no spec, the harness repository) or nothing changed: no commit.
+- Passed: `status: done`, `pr: "#<n>"` in the spec front matter. It reaches the default branch
+  only with the merge, so `done` is true there. Otherwise `status: in Arbeit`.
+- `updated` today. `note`: the criteria `nicht prüfbar` or the failing check, one line, or
+  `alle Kriterien erfüllt`.
+- Commit only the front matter on the PR branch: `docs(specs): <NNNN> <done|in Arbeit> nach
+  Test`, with the attribution line from the session. Push. Then run the skill `review` with `<n>`;
+  the new commit changes only `docs/specs/`, so its state is `übernommen`.
+- No spec (the harness repository, a change without spec) or nothing changed: no commit.
 
 ## 8. Status
 
@@ -108,7 +115,7 @@ passed, `failure` otherwise. A later push has no status; `human-gate` then fails
 
 ## 9. Summary
 
-PR, row status, the status `verified`, failing checks with output, criteria not met or not
+PR, spec status, the status `verified`, failing checks with output, criteria not met or not
 testable, the branch checked out before. The working tree stays on the PR branch. Do not report
 passing checks. Outside `implement`, the next step: the person reads the PR and sets the label
 `human-approved` after this push; started from `implement`, return the result to it.

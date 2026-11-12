@@ -35,6 +35,7 @@ harness/templates/settings.json => .claude/settings.json
 .gitattributes
 harness/config.yml
 harness/risk-matrix.yml
+docs/specs/0000-template.md
 harness/templates/Makefile => Makefile
 harness/templates/AGENTS.md => AGENTS.md
 harness/templates/CODEOWNERS => .github/CODEOWNERS

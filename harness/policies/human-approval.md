@@ -13,9 +13,9 @@ G3). The risk level (`risk.md`) decides which gates apply to a change.
 ## How each gate is recorded
 
 - **G0**: the person answers the approval question of `/spec` in the session. Only on that answer
-  the skill writes `status: approved` in the spec frontmatter and in the row of
-  `docs/specs/README.md`, and commits it with the name of the person and the date. A person may
-  also set the status by hand.
+  the skill writes `status: approved` in the spec front matter and commits it with the name of
+  the person and the date. `/roadmap` asks once for a whole wave; the answer is G0 for each of its
+  specs. A person may also set the status by hand.
 - **G1**: the plan is the section `## Umsetzung` of the spec and is approved with it. `implement`
   stops and asks when the change leaves the plan: a higher risk level, files or contracts that
   change what the spec promises, an edge case without an answer.
@@ -30,7 +30,7 @@ G3). The risk level (`risk.md`) decides which gates apply to a change.
   `harness/scripts/review-status.sh verify` (decision 0018). `human-gate.sh` checks it before G2
   for the levels in `verify_required_for` (`harness/config.yml`: `high` by default, `medium` for
   medium and high, `""` off; any other value fails the gate). The line `Geprüft:` of the criteria
-  table in the PR body names the checked commit; the head adds only the spec row. Pull requests by
+  table in the PR body names the checked commit; the head adds only the spec state. Pull requests by
   bots are exempt: they have no spec, CI is their check. A push removes the status; `verify` runs
   again before the label.
 

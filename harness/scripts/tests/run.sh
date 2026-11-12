@@ -606,5 +606,101 @@ printf 'precommit: ; @exit 1\n' > "$HK/Makefile"
 hkgit add -A
 check "hook: a failing precommit stops the commit" "1" "$(hkgit commit -q -m three >/dev/null 2>&1; echo $?)"
 
+# Spec overview (harness/scripts/specs.sh)
+SPECS="$ROOT/harness/scripts/specs.sh"
+SD="$TMP/specs"
+mkdir -p "$SD"
+printf -- '---\nid: "0000"\ntitle: <Titel>\nstatus: draft\n---\n' > "$SD/0000-template.md"
+printf -- '---\nid: "0001"\ntitle: Artikel anlegen\nstatus: done\nrisk: high\npr: 3\nupdated: 2026-11-10\ncreated: 2026-11-09\nnote: alle Kriterien erfüllt\n---\n\n# A\n' > "$SD/0001-artikel.md"
+printf -- '---\nid: "0002"\ntitle: "Filter | Suche"\nstatus: approved\nrisk: medium\npr: ""\ncreated: 2026-11-11\n---\n\n# B\n' > "$SD/0002-filter.md"
+printf '# Ohne Frontmatter\n' > "$SD/0003-ohne.md"
+out=$("$SPECS" --dir "$SD")
+check "specs: header and one row per spec, no template" "5" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')"
+check "specs: a done row with PR, Stand and note" "| 0001 | Artikel anlegen | high | done | #3 | 2026-11-10 | alle Kriterien erfüllt |" "$(printf '%s\n' "$out" | grep '^| 0001')"
+check "specs: quotes go, a bar is escaped, created stands in for updated" '| 0002 | Filter \| Suche | medium | approved | – | 2026-11-11 | – |' "$(printf '%s\n' "$out" | grep '^| 0002')"
+check "specs: a file without front matter keeps its number" "| 0003 | – | – | – | – | – | – |" "$(printf '%s\n' "$out" | grep '^| 0003')"
+check "specs: --open leaves out done" "no" "$("$SPECS" --open --dir "$SD" | grep -q '^| 0001' && echo yes || echo no)"
+check "specs: an empty directory prints nothing" "" "$(mkdir -p "$TMP/nospecs" && "$SPECS" --dir "$TMP/nospecs")"
+check "specs: a missing directory exits 0" "0" "$("$SPECS" --dir "$TMP/missing" >/dev/null 2>&1; echo $?)"
+check "specs: an unknown argument exits 2" "2" "$("$SPECS" --bad >/dev/null 2>&1; echo $?)"
+check "specs: --dir needs a value" "2" "$("$SPECS" --dir >/dev/null 2>&1; echo $?)"
+SC="$TMP/session-project"
+mkdir -p "$SC/harness/scripts" "$SC/docs"
+cp "$SPECS" "$SC/harness/scripts/"
+cp -R "$SD" "$SC/docs/specs"
+echo 9.9.9 > "$SC/HARNESS_VERSION"
+out=$(CLAUDE_PROJECT_DIR="$SC" "$ROOT/.claude/hooks/session-context.sh")
+check "session hook lists an open spec" "yes" "$(printf '%s\n' "$out" | grep -q '^| 0002' && echo yes || echo no)"
+check "session hook leaves out a done spec" "no" "$(printf '%s\n' "$out" | grep -q '^| 0001' && echo yes || echo no)"
+
+# Wave check (harness/scripts/wave-check.sh)
+WC="$ROOT/harness/scripts/wave-check.sh"
+WD="$TMP/wave"
+mkdir -p "$WD"
+plan() { # <file> <id> <Dateien lines...>; ^ stands for a backtick
+  local f="$1" id="$2"; shift 2
+  { printf -- '---\nid: "%s"\nstatus: approved\n---\n\n# S\n\n## Scope\n\n- ^src/scope-only.ts^ nicht im Plan\n\n## Umsetzung\n\nEntscheidungen:\n\n- keine\n\nDateien:\n\n' "$id"
+    printf '%s\n' "$@"
+    printf '\nSchritte:\n\n- ^src/step-only.ts^ zuerst\n\n## Offene Fragen\n\n- [ ] ^src/question.ts^?\n'; } | tr '^' '\140' > "$WD/$f"
+}
+plan a.md 0011 '- ^src/a.ts^: neu, Komponente' '- ^contracts/api.yaml^: ändern' '- ^gen/x.ts^, ^gen/y.ts^: generiert über ^make contracts^'
+plan b.md 0012 '- ^src/b.ts^: neu' '- ^contracts/other.yaml^: neu'
+plan c.md 0013 '- ^src/a.ts^: ändern'
+plan d.md 0014 '- ^.../Foo.java^: ändern' '- ^src/d.ts|html|css^: neu' '- ^src/ok.ts^: neu'
+plan f.md 0016 '- ^src/f.ts^: neu' '- ^src/scope-only.ts^: nein, nur im Scope erwähnt' 
+printf -- '---\nid: "0015"\n---\n\n# E\n\n## Umsetzung\n\nSchritte:\n\n1. etwas\n' > "$WD/e.md"
+wc_out() { "$WC" "$@" 2>&1; echo "exit=$?"; }
+check "wave: separate specs pass" "ok: 2 specs, no overlap|exit=0" "$(wc_out "$WD/a.md" "$WD/f.md" | tr '\n' '|' | sed 's/|$//')"
+check "wave: the same path is an overlap" "overlap	0011	0013	src/a.ts" "$(wc_out "$WD/a.md" "$WD/c.md" | grep '^overlap')"
+check "wave: two contract changes are exclusive" "exclusive	0011	0012	contracts/**" "$(wc_out "$WD/a.md" "$WD/b.md" | grep '^exclusive')"
+check "wave: findings exit 1" "exit=1" "$(wc_out "$WD/a.md" "$WD/b.md" | tail -1)"
+check "wave: every path before the colon, none after it" "gen/x.ts gen/y.ts" "$(plan g.md 0017 '- ^gen/x.ts^, ^gen/y.ts^: auch' && wc_out "$WD/a.md" "$WD/g.md" | awk -F'\t' '$1 == "overlap" { print $4 }' | tr '\n' ' ' | sed 's/ $//')"
+check "wave: abbreviated and alternative paths are unchecked" "unchecked	0014	.../Foo.java|unchecked	0014	src/d.ts|html|css" "$(wc_out "$WD/d.md" "$WD/f.md" | grep '^unchecked' | tr '\n' '|' | sed 's/|$//')"
+check "wave: a spec without Dateien" "no-paths	0015" "$(wc_out "$WD/e.md" "$WD/f.md" | grep '^no-paths')"
+check "wave: scope, steps and questions are not the plan" "ok: 2 specs, no overlap" "$(plan h.md 0018 '- ^src/step-only.ts^: neu' '- ^src/question.ts^: neu' && wc_out "$WD/h.md" "$WD/a.md" | sed -n 1p)"
+printf 'wave_exclusive:\n' > "$TMP/matrix-noexcl.yml"
+check "wave: an empty wave_exclusive turns the default off" "exit=0" "$(wc_out --matrix "$TMP/matrix-noexcl.yml" "$WD/a.md" "$WD/b.md" | tail -1)"
+printf 'wave_exclusive:\n  - "src/b.ts"\n  - "src/f.ts"\n' > "$TMP/matrix-excl.yml"
+check "wave: a project list replaces the default" "exit=0" "$(wc_out --matrix "$TMP/matrix-excl.yml" "$WD/b.md" "$WD/f.md" | tail -1)"
+plan i.md 0019 '- ^src/app/^: neu, ganzes Verzeichnis'
+plan j.md 0020 '- ^src/app/x.ts^: ändern' '- ^./src/f.ts^: ändern'
+check "wave: a directory overlaps the files in it" "overlap	0019	0020	src/app/" "$(wc_out "$WD/i.md" "$WD/j.md" | grep '^overlap')"
+check "wave: a leading ./ is dropped" "overlap	0016	0020	src/f.ts" "$(wc_out "$WD/f.md" "$WD/j.md" | grep '^overlap')"
+check "wave: --matrix needs a value" "2" "$("$WC" "$WD/a.md" "$WD/b.md" --matrix >/dev/null 2>&1; echo $?)"
+check "wave: one spec is a usage error" "2" "$("$WC" "$WD/a.md" >/dev/null 2>&1; echo $?)"
+check "wave: a missing spec is a usage error" "2" "$("$WC" "$WD/a.md" "$WD/nope.md" >/dev/null 2>&1; echo $?)"
+
+# Application lock (harness/scripts/app-lock.sh)
+AL="$ROOT/harness/scripts/app-lock.sh"
+LR="$TMP/lock-repo"
+mkdir -p "$LR"
+git -C "$LR" init -q -b main && git -C "$LR" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m one
+git -C "$LR" worktree add -q "$TMP/lock-wt" -b other 2>/dev/null
+lock() { local d="$1"; shift; (cd "$d" && "$AL" "$@" >/dev/null 2>&1); echo $?; }
+check "lock: the first owner takes it" "0" "$(lock "$LR" acquire --owner a)"
+check "lock: another worktree sees the owner" "a" "$(cd "$TMP/lock-wt" && "$AL" status | cut -d' ' -f1)"
+check "lock: another owner is refused" "1" "$(lock "$TMP/lock-wt" acquire --owner b)"
+check "lock: the owner takes it again" "0" "$(lock "$LR" acquire --owner a)"
+check "lock: another owner cannot release it" "1" "$(lock "$TMP/lock-wt" release --owner b)"
+check "lock: the owner releases it" "0" "$(lock "$LR" release --owner a)"
+check "lock: free after the release" "free" "$(cd "$LR" && "$AL" status)"
+check "lock: free again for another owner" "0" "$(lock "$TMP/lock-wt" acquire --owner b)"
+check "lock: a stale lock is taken over" "0" "$(lock "$LR" acquire --owner c --stale 0)"
+check "lock: the new owner after a takeover" "c" "$(cd "$LR" && "$AL" status | cut -d' ' -f1)"
+LOCKLINK="$LR/.git/ai-harness/app.lock"
+rm -f "$LOCKLINK" && ln -s "1:old/branch" "$LOCKLINK"
+check "lock: a lock older than 60 minutes is taken over" "0" "$(lock "$TMP/lock-wt" acquire --owner d)"
+check "lock: the owner after the old lock" "d" "$(cd "$LR" && "$AL" status | cut -d' ' -f1)"
+rm -f "$LOCKLINK" && ln -s "$(date +%s):feat/0001-x" "$LOCKLINK"
+check "lock: a branch name with a slash is the owner" "feat/0001-x" "$(cd "$LR" && "$AL" status | cut -d' ' -f1)"
+check "lock: a fresh lock of another owner stays" "1" "$(lock "$LR" acquire --owner e)"
+rm -f "$LOCKLINK" && ln -s "garbage" "$LOCKLINK"
+check "lock: a lock without a readable time is taken over" "0" "$(lock "$LR" acquire --owner f)"
+check "lock: no renamed link is left behind" "" "$(find "$LR/.git/ai-harness" -name 'app.lock.stale.*')"
+check "lock: --owner needs a value" "2" "$(lock "$LR" acquire --owner)"
+check "lock: --owner is required" "2" "$(lock "$LR" acquire)"
+check "lock: outside git is a usage error" "2" "$(lock "$TMP/nospecs" status)"
+check "lock: an unknown command is a usage error" "2" "$(lock "$LR" grab --owner a)"
+
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ]
