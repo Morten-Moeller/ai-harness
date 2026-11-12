@@ -2,6 +2,25 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.7.1 (2026-11-12)
+
+`bootstrap.sh` left out every `README.md` below the root since 0.1.0: the exclude meant for the
+root README matched at any depth. A new project lacked `harness/README.md`, `docs/specs/`,
+`docs/adr/`, `docs/domain/`, `docs/architecture/`, `contracts/` and `project-rules/README.md`.
+
+Manual step for projects bootstrapped with 0.1.0 to 0.7.0:
+
+- Copy the missing `README.md` files of `docs/specs/`, `docs/adr/`, `docs/domain/`,
+  `docs/architecture/`, `contracts/` and `project-rules/` from the harness repository, unless the
+  project wrote its own. `harness/README.md` comes with `update.sh`.
+
+Changes:
+
+- `bootstrap.sh` anchors the excludes of root files at the root (`/README.md`, `/Makefile`,
+  `/AGENTS.md`, ...). A test checks the README files below the root.
+- `app-lock.sh`, `specs.sh`, `wave-check.sh`: an option is not taken as the value of another
+  option (`--owner --wait 5` is a usage error, exit 2).
+
 ## 0.7.0 (2026-11-12)
 
 Roadmap and parallel waves (decisions 0019 and 0020). `/roadmap` turns an overall goal into specs
