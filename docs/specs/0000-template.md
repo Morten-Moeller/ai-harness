@@ -6,6 +6,9 @@ risk: <low | medium | high, Vorschlag aus /risk>
 adrs: []
 owner: <Name der Person, die freigibt>
 created: YYYY-MM-DD
+updated: YYYY-MM-DD
+pr: ""
+note: ""
 ---
 
 # <Titel der Änderung>
@@ -59,9 +62,21 @@ ADR nötig: <ja, Nr. | nein, weil ...>
 ## Umsetzung
 
 <!-- Der Plan, den die Freigabe der Spec mit freigibt (G1). /implement hält nur an, wenn es
-     davon abweichen muss: höhere Risikostufe, Dateien oder Contracts außerhalb dieser Liste. -->
+     davon abweichen muss: höhere Risikostufe, Dateien oder Contracts außerhalb dieser Liste,
+     eine Entscheidung, die unten fehlt. -->
+
+Entscheidungen:
+
+<!-- Höchstens fünf Zeilen, sonst "keine": neue Abhängigkeiten, Contract- und API-Änderungen,
+     Datenmodell und Migrationen, neue Module oder Dienste, Abweichungen von einer Regel (ADR).
+     Diesen Block liest die Person bei der Freigabe. -->
+
+- keine
 
 Dateien:
+
+<!-- Vollständige Pfade ab der Wurzel des Repositorys, eine Datei pro Zeile, ohne "...", "*"
+     oder "a.ts|html". harness/scripts/wave-check.sh vergleicht sie zwischen Specs. -->
 
 - `<pfad>`: <neu | ändern>, <was>
 
@@ -78,7 +93,8 @@ Tests:
 ## Offene Fragen
 
 <!-- Fragen, die vor der Freigabe eine Person beantwortet. /spec stellt sie zusammen mit der
-     Freigabefrage. Beantwortete Fragen wandern in die Entscheidungstabelle in README.md. -->
+     Freigabefrage. Eine beantwortete Frage bleibt hier stehen:
+     - [x] <Frage> → <Antwort> (<Wer>, <Datum>) -->
 
 - [ ] ...
 

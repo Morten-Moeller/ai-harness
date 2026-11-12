@@ -39,6 +39,11 @@ that names the rule number in its line `Ersetzt Grundregeln:`; without such an A
   is about. No reflection into private state.
 - T3.5 Data that is not under test comes from the test data command of the project (skill
   `test-data`), not from the user flow.
+- T3.6 The test command takes free ports and its own data and build directories. Two runs in two
+  checkouts on one machine at the same time pass (decision 0020: one worktree per spec of a wave).
+  A fixed port belongs to the started application, which runs under
+  `harness/scripts/app-lock.sh`, not to the tests. A project that cannot follow it records an ADR
+  and sets `parallel_max: 1`.
 
 ## T4 Determinism
 
