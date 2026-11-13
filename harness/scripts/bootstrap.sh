@@ -77,18 +77,18 @@ if [ "$IN_PLACE" = 0 ]; then
   rsync -a \
     --exclude '.git/' \
     --exclude '.DS_Store' \
-    --exclude 'harness/decisions/' \
-    --exclude 'harness/CHANGELOG.md' \
-    --exclude 'harness/scripts/tests/' \
-    --exclude 'harness/templates/' \
-    --exclude '.markdownlint-cli2.jsonc' \
-    --exclude 'Makefile' \
-    --exclude 'README.md' \
-    --exclude 'AGENTS.md' \
-    --exclude '.claude/settings.json' \
-    --exclude '.claude/settings.local.json' \
-    --exclude '.github/actions/setup/action.yml' \
-    --exclude '.github/CODEOWNERS' \
+    --exclude '/harness/decisions/' \
+    --exclude '/harness/CHANGELOG.md' \
+    --exclude '/harness/scripts/tests/' \
+    --exclude '/harness/templates/' \
+    --exclude '/.markdownlint-cli2.jsonc' \
+    --exclude '/Makefile' \
+    --exclude '/README.md' \
+    --exclude '/AGENTS.md' \
+    --exclude '/.claude/settings.json' \
+    --exclude '/.claude/settings.local.json' \
+    --exclude '/.github/actions/setup/action.yml' \
+    --exclude '/.github/CODEOWNERS' \
     "$HARNESS/" "$TARGET/"
 fi
 

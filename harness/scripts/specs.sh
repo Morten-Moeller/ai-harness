@@ -13,7 +13,7 @@ usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' 
 
 DIR=""
 OPEN=0
-need() { [ "$#" -ge 2 ] || { echo "$1 needs a value" >&2; exit 2; }; }
+need() { if [ "$#" -lt 2 ] || [ "${2#--}" != "$2" ]; then echo "$1 needs a value" >&2; exit 2; fi; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --open) OPEN=1; shift ;;

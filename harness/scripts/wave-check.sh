@@ -6,13 +6,14 @@
 #   wave-check.sh [--matrix <file>] <spec.md> <spec.md> ...
 #
 # One line per finding, tab-separated:
-#   overlap    <spec> <spec> <path>      both specs change the path, or a file in the directory
-#   exclusive  <spec> <spec> <pattern>   both change a path of wave_exclusive (harness/risk-matrix.yml)
+#   overlap    <spec> <spec> <path>      both specs change the path or files in the directory
+#   exclusive  <spec> <spec> <pattern>   both change a path of wave_exclusive (risk matrix)
 #   unchecked  <spec> <path>             not a full path (.../, *, |, <...>), cannot be compared
 #   no-paths   <spec>                    no `Dateien:` list
 # A path is the first backticked word of a list item, or every backticked word before the first
-# "`:" of the item; a leading ./ is dropped, a trailing / marks a directory. Without the key wave_exclusive in the matrix, contracts/** and migration
-# directories are exclusive. Exit 0 without findings, 1 with findings, 2 on a usage error.
+# "`:" of the item; a leading ./ is dropped, a trailing / marks a directory. Without the key
+# wave_exclusive in harness/risk-matrix.yml, contracts/** and migration directories are exclusive.
+# Exit 0 without findings, 1 with findings, 2 on a usage error.
 set -euo pipefail
 
 usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
@@ -20,7 +21,7 @@ usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 MATRIX="$ROOT/harness/risk-matrix.yml"
 SPECS=()
-need() { [ "$#" -ge 2 ] || { echo "$1 needs a value" >&2; exit 2; }; }
+need() { if [ "$#" -lt 2 ] || [ "${2#--}" != "$2" ]; then echo "$1 needs a value" >&2; exit 2; fi; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --matrix) need "$@"; MATRIX="$2"; shift 2 ;;
