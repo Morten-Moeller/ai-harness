@@ -17,6 +17,12 @@ linked from the spec and the PR.
    `project-rules/` or from an existing ADR. The new ADR names the rule numbers in its line
    `Ersetzt Grundregeln:`, supersedes the old ADR or records the exception.
 6. A **reviewer** (`/review` or a person) asks for one.
+7. The stack takes a **release line older than the newest LTS line**, or a line that is not LTS
+   (`versions.md`, V3). The ADR names the component that blocks the newest line, a source and the
+   condition for the move.
+
+An ADR that names a version takes it from a lookup on the day (`versions.md`, V2) and records the
+date and the source.
 
 ## An ADR is not required when
 

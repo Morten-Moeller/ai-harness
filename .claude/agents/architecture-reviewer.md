@@ -18,6 +18,11 @@ check.
   applies to `harness/decisions/`.
 - The rule check covers ADR presence for high risk and edits to accepted decisions. Walk the
   conditions 2 to 6 of `harness/policies/adr.md` and state for each whether it applies.
+- A diff that adds or moves a runtime, language, framework, database or base image (toolchain
+  file, manifest, setup action, Dockerfile, `stack` in `harness/config.yml`): check it against
+  `harness/policies/versions.md`. Blocking: the release line is missing in `stack` (V4), or an
+  entry with `adr:<NNNN>` whose ADR lacks the component, the source or the condition of V3. The
+  gate `deps` checks the age of the lines; do not report it again.
 - A rule in `project-rules/` marked `(geprüft: <check>)` is enforced by that check in the gates.
   Do not report it again.
 - Every finding names the document and the rule it rests on. A finding without such a source is

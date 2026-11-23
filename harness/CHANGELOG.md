@@ -2,6 +2,42 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.8.0 (2026-11-23)
+
+Stack versions and security watch (decision 0021). A stack decision takes the newest LTS line from
+a lookup on the day; the gate `deps` checks the release lines of the stack against endoflife.date;
+a daily run of `deps` on the default branch can be turned on for production.
+
+Breaking: a project with a dependency manifest fails `make deps` until `stack` is filled.
+
+Manual steps after `update.sh`:
+
+- `harness/config.yml` (project-owned, `update.sh` shows the diff): add the keys `stack`,
+  `stack_lts_grace_days: 30` and `security_watch: false`. Fill `stack` with one entry
+  `"<product> <line>"` per runtime, language, framework, database and base image, with the names
+  of <https://endoflife.date> (`harness/scripts/stack-check.sh --latest <product>` prints the
+  newest LTS line). Then `make deps`: a line without support needs the upgrade; an older LTS line
+  needs the upgrade as its own spec, or an ADR with the reason and `adr:<NNNN>` at the entry.
+- `.github/dependabot.yml` (project-owned): add the package ecosystems of the project.
+- `harness/scripts/setup-repo.sh` once more: it turns on Dependabot alerts and security updates.
+- `.github/actions/setup/action.yml` (project-owned): `jq` must be installed for `deps`; the
+  GitHub runners have it.
+- With the first production release: `security_watch: true`, and optionally
+  `gh secret set SECURITY_WATCH_SLACK_WEBHOOK` with a Slack incoming webhook.
+
+Changes:
+
+- `harness/policies/versions.md` (V1 to V5): newest LTS line, versions from a lookup and not from
+  the memory of a model, an ADR with a reason for an older line, the list `stack`, no exception
+  for a line without support. `harness/policies/adr.md` has the new condition 7.
+- `harness/scripts/stack-check.sh`: the check of `stack`, and `--latest <product>` as the lookup.
+  `make deps` runs it after OSV-Scanner.
+- `.github/workflows/security-watch.yml`: `make deps` every day on the default branch with
+  `security_watch: true`; a finding fails the run and goes to Slack when the secret is set.
+- `/roadmap`, `/adr`, `/spec`: versions from the lookup; the skeleton spec fills `stack`, the
+  toolchain files and `.github/dependabot.yml`. The architecture review checks V3 and V4.
+- `setup-repo.sh`: Dependabot alerts and security updates.
+
 ## 0.7.1 (2026-11-12)
 
 `bootstrap.sh` left out every `README.md` below the root since 0.1.0: the exclude meant for the

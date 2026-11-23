@@ -13,12 +13,13 @@ sast: ## Static application security testing (semgrep) and secret scan (gitleaks
 	@if $(call have,semgrep,sast,https://semgrep.dev/docs/getting-started/quickstart); then semgrep scan --config auto --error --quiet; fi
 	@if $(call have,gitleaks,sast,https://github.com/gitleaks/gitleaks#installing); then gitleaks detect --no-banner --redact; fi
 
-deps: ## Known vulnerabilities in dependencies (osv-scanner over the lock files)
+deps: ## Known vulnerabilities in dependencies (osv-scanner) and the release lines of the stack (stack-check.sh)
 	@if $(call have,osv-scanner,deps,https://google.github.io/osv-scanner/installation/); then \
 	  out=$$(osv-scanner scan source --recursive . 2>&1); code=$$?; printf '%s\n' "$$out"; \
 	  if [ $$code -eq 128 ] && printf '%s' "$$out" | grep -q 'No package sources found'; then echo "make deps: no lock files in the repository, nothing to scan"; exit 0; fi; \
 	  exit $$code; \
 	fi
+	@if $(call have,jq,deps,https://jqlang.org/download/); then harness/scripts/stack-check.sh; fi
 
 drift: ## Generated files match their source (contracts_generate_target in harness/config.yml)
 	@harness/scripts/drift.sh

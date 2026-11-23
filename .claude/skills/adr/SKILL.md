@@ -26,6 +26,13 @@ it is possible. When the person has already stated the decision, write it down a
 and still list the options that were on the table; ask with `AskUserQuestion` when the options
 are unclear.
 
+A decision that names a runtime, language, framework, database or base image follows
+`harness/policies/versions.md`: run `harness/scripts/stack-check.sh --latest <product>` and write
+the release line, the date of the lookup and the source into `## Entscheidung`. A line older than
+the newest LTS line: the component that does not support the newest line, a source for it and the
+condition for the move. `## Folgen` names the entry in `stack` of `harness/config.yml`, with
+`adr:<NNNN>` for an older line.
+
 ## 3. Write
 
 1. Number: highest `NNNN` in `docs/adr/` plus one, `0001` when there is none. Slug as in `/spec`.

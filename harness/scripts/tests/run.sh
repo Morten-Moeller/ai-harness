@@ -706,5 +706,71 @@ check "lock: --owner is required" "2" "$(lock "$LR" acquire)"
 check "lock: outside git is a usage error" "2" "$(lock "$TMP/nospecs" status)"
 check "lock: an unknown command is a usage error" "2" "$(lock "$LR" grab --owner a)"
 
+# Stack versions (harness/scripts/stack-check.sh)
+SK="$ROOT/harness/scripts/stack-check.sh"
+SV="$TMP/stack"
+mkdir -p "$SV/data" "$SV/root/docs/adr" "$SV/root/harness"
+cat > "$SV/data/rt.json" <<'J'
+{"result":{"releases":[
+{"name":"27","releaseDate":"2026-12-01","isLts":true,"ltsFrom":null,"isEol":false,"eolFrom":"2031-12-01","latest":{"name":"27.0.0"}},
+{"name":"26","releaseDate":"2026-05-01","isLts":false,"ltsFrom":"2026-10-28","isEol":false,"eolFrom":"2029-04-30","latest":{"name":"26.1.0"}},
+{"name":"25","releaseDate":"2026-03-01","isLts":false,"ltsFrom":null,"isEol":false,"eolFrom":"2026-12-15","latest":{"name":"25.0.2"}},
+{"name":"24","releaseDate":"2025-05-01","isLts":true,"ltsFrom":"2025-10-28","isEol":false,"eolFrom":"2028-04-30","latest":{"name":"24.9.0"}},
+{"name":"22","releaseDate":"2024-05-01","isLts":true,"ltsFrom":"2024-10-28","isEol":true,"eolFrom":"2026-04-30","latest":{"name":"22.20.0"}}
+]}}
+J
+cat > "$SV/data/fw.json" <<'J'
+{"result":{"releases":[
+{"name":"22","releaseDate":"2026-06-03","isLts":false,"ltsFrom":null,"isEol":false,"eolFrom":"2028-06-30","latest":{"name":"22.3.0"}},
+{"name":"21","releaseDate":"2025-11-19","isLts":false,"ltsFrom":null,"isEol":false,"eolFrom":"2027-06-30","latest":{"name":"21.2.0"}}
+]}}
+J
+printf '# 0003: Older line\n\nStatus: accepted\n' > "$SV/root/docs/adr/0003-older-line.md"
+stack() { # <today> <entries...>; prints the exit code, the output goes to $TMP/stack.out
+  local today="$1"; shift
+  { printf 'doc_language: de\nstack:\n'; [ $# -eq 0 ] || printf '  - "%s"\n' "$@"; printf '\n# next key\nstack_lts_grace_days: %s\nsecurity_watch: false\n' "${STACK_GRACE:-30}"; } > "$SV/root/harness/config.yml"
+  "$SK" --root "$SV/root" --data-dir "$SV/data" --today "$today" > "$TMP/stack.out" 2>&1
+  echo $?
+}
+check "stack: the newest LTS line passes" "0" "$(stack 2026-11-23 'rt 26')"
+check "stack: a line that is LTS later is not counted before that day" "0" "$(stack 2026-10-01 'rt 24')"
+check "stack: a release of the future is not counted" "no" "$(grep -q '27' "$TMP/stack.out" && echo yes || echo no)"
+check "stack: a newer LTS line inside the grace period passes" "0" "$(stack 2026-11-23 'rt 24')"
+check "stack: the note names the day of the block" "yes" "$(grep -q 'neuere LTS-Linie 26, LTS seit 2026-10-28; blockiert ab 2026-11-27 (Hinweis)' "$TMP/stack.out" && echo yes || echo no)"
+check "stack: a newer LTS line after the grace period fails" "1" "$(stack 2026-11-27 'rt 24')"
+check "stack: the finding names the entry and the policy" "yes" "$(grep -q '^stack: rt 24: neuere LTS-Linie 26' "$TMP/stack.out" && grep -q 'harness/policies/versions.md' "$TMP/stack.out" && echo yes || echo no)"
+check "stack: stack_lts_grace_days 0 blocks at once" "1" "$(STACK_GRACE=0 stack 2026-10-28 'rt 24')"
+check "stack: an entry with an ADR passes" "0" "$(stack 2026-12-31 'rt 24 adr:0003')"
+check "stack: an ADR that docs/adr does not have fails" "1" "$(stack 2026-11-23 'rt 24 adr:0009')"
+check "stack: a line without support fails" "1" "$(stack 2026-11-23 'rt 22')"
+check "stack: an ADR does not lift a line without support" "1" "$(stack 2026-11-23 'rt 22 adr:0003')"
+check "stack: a line that is not LTS fails" "1" "$(stack 2026-11-23 'rt 25')"
+check "stack: a line that is not LTS passes with an ADR" "0" "$(stack 2026-08-01 'rt 25 adr:0003')"
+check "stack: support that ends within 90 days is a note" "yes" "$(stack 2026-11-23 'rt 25 adr:0003' >/dev/null; grep -q 'Support endet am 2026-12-15 (Hinweis)' "$TMP/stack.out" && echo yes || echo no)"
+check "stack: a newer line of a product without LTS lines passes" "0" "$(stack 2026-11-23 'fw 21')"
+check "stack: it is a note" "yes" "$(grep -q 'neuere Linie 22 seit 2026-06-03' "$TMP/stack.out" && echo yes || echo no)"
+check "stack: one failing entry fails the list" "1" "$(stack 2026-11-23 'rt 26' 'fw 22' 'rt 22')"
+check "stack: an unknown line is a config error" "2" "$(stack 2026-11-23 'rt 99')"
+check "stack: an unknown product is a config error" "2" "$(stack 2026-11-23 'nope 1')"
+check "stack: an entry of another form is a config error" "2" "$(stack 2026-11-23 'rt 26 because')"
+check "stack: an empty list without a manifest passes" "0" "$(stack 2026-11-23)"
+mkdir -p "$SV/root/backend" && touch "$SV/root/backend/pom.xml"
+check "stack: an empty list with a manifest fails" "1" "$(stack 2026-11-23)"
+check "stack: the finding names the manifest" "yes" "$(grep -q 'backend/pom.xml' "$TMP/stack.out" && echo yes || echo no)"
+check "stack: a filled list with a manifest passes" "0" "$(stack 2026-11-23 'rt 26')"
+printf 'doc_language: de\n' > "$SV/root/harness/config.yml"
+check "stack: a config without the key counts as an empty list" "1" "$("$SK" --root "$SV/root" --data-dir "$SV/data" --today 2026-11-23 >/dev/null 2>&1; echo $?)"
+check "stack: --latest prints the newest LTS line" "rt 26	LTS seit 2026-10-28, Support bis 2029-04-30, neueste Version 26.1.0" "$("$SK" --latest rt --data-dir "$SV/data" --today 2026-11-23 | head -1)"
+check "stack: --latest lists the other supported lines" "2" "$("$SK" --latest rt --data-dir "$SV/data" --today 2026-11-23 | grep -c 'weitere Linie')"
+check "stack: --latest without LTS lines prints the newest supported line" "fw 22" "$("$SK" --latest fw --data-dir "$SV/data" --today 2026-11-23 | head -1 | cut -f1)"
+check "stack: --latest for an unknown product exits 2" "2" "$("$SK" --latest nope --data-dir "$SV/data" >/dev/null 2>&1; echo $?)"
+check "stack: --today needs a date" "2" "$("$SK" --today tomorrow >/dev/null 2>&1; echo $?)"
+check "stack: an option is not a value" "2" "$("$SK" --latest --today 2026-11-23 >/dev/null 2>&1; echo $?)"
+check "stack: the harness repository itself passes" "0" "$("$SK" --data-dir "$SV/data" >/dev/null 2>&1; echo $?)"
+check "stack: make deps runs the stack check" "yes" "$(grep -q 'harness/scripts/stack-check.sh' "$ROOT/harness/gates.mk" && echo yes || echo no)"
+check "stack: the daily workflow is harness-owned" "1" "$(grep -cx '.github/workflows/security-watch.yml' "$ROOT/harness/owned-paths.txt")"
+check "stack: the daily run is off by default" "security_watch: false" "$(grep '^security_watch:' "$ROOT/harness/config.yml")"
+check "stack: bootstrap copies the stack keys and the workflow" "yes" "$(grep -q '^stack:' "$target/harness/config.yml" && grep -q '^stack_lts_grace_days: 30' "$target/harness/config.yml" && [ -f "$target/.github/workflows/security-watch.yml" ] && [ -f "$target/harness/policies/versions.md" ] && echo yes || echo no)"
+
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ]

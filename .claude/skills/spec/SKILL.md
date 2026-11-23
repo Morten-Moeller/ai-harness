@@ -48,7 +48,10 @@ open go to `## Offene Fragen`; the skill does not guess.
    definition and a note "neu, mit /domain ins Glossar".
 5. `## Umsetzung`: first the block `Entscheidungen:`, at most five lines or `keine`: new
    dependencies, contract and API changes, data model and migrations, new modules or services,
-   deviations from a rule (with the ADR). Then the files to create or change, each as a full path
+   deviations from a rule (with the ADR). A new or moved runtime, framework, database or base
+   image: the release line from `harness/scripts/stack-check.sh --latest <product>`
+   (`harness/policies/versions.md`), and `harness/config.yml` (list `stack`) among the files. Then
+   the files to create or change, each as a full path
    from the repository root on its own line (no `...`, `*` or `a.ts|html`;
    `harness/scripts/wave-check.sh` compares them), the steps in order, one test per criterion
    (file and case; for a criterion that names a screen an end-to-end spec when

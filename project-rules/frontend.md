@@ -8,7 +8,8 @@ sources: []
 
 ## Stack
 
-- Framework and version: TODO
+- Framework and version: TODO (newest LTS or supported line by `harness/policies/versions.md`;
+  the release lines also stand in `stack` of `harness/config.yml`)
 - Package manager and Node version: TODO
 - Build tool: TODO
 

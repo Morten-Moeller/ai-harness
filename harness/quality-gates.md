@@ -12,7 +12,7 @@ target names; the project fills them with its tools.
 | `make typecheck` | static types | stub, exits 1 with a message | yes, required |
 | `make lint` | style and static rules | stub, exits 1 with a message | yes, required |
 | `make sast` | static application security testing, secrets | `semgrep --config auto`, `gitleaks detect` | optional additions |
-| `make deps` | known vulnerabilities in dependencies | `osv-scanner` over the lock files | optional additions |
+| `make deps` | known vulnerabilities in dependencies, release lines of the stack | `osv-scanner` over the lock files, `stack-check.sh` over `stack` in `harness/config.yml` | the list `stack`, optional additions |
 | `make drift` | committed generated files match their source | runs `contracts_generate_target` of `harness/config.yml`, passes when it is empty | the generator target |
 | `make check` | all of the above | fixed | no |
 | `make e2e` | user flows against the running application | stub that prints "no end-to-end tests configured" and exits 0 | optional; in CI only with `e2e_in_ci: true` |
@@ -54,10 +54,45 @@ Both defaults are stack-neutral and read the repository as files. They need no b
 - **gitleaks** (`gitleaks detect --no-banner --redact`): secrets in the history and the tree. A
   `.gitleaks.toml` allowlist is project-owned and reviewed like code.
 - **OSV-Scanner** (`osv-scanner scan --recursive .`): lock files of every ecosystem against the OSV
-  database. `osv-scanner.toml` holds ignores with an expiry date and a reason.
+  database, which holds the CVE and GHSA advisories. `osv-scanner.toml` holds ignores with an
+  expiry date and a reason.
 
 Dependabot (`.github/dependabot.yml`) opens the update PRs; `deps` is the gate that catches what is
-already in the tree.
+already in the tree. The file is project-owned: the skeleton spec adds the package ecosystems of
+the project (npm, maven, gradle, nuget, gomod, pip, docker), otherwise Dependabot updates only the
+GitHub Actions. `setup-repo.sh` turns on Dependabot alerts and security updates.
+
+## Stack versions
+
+`make deps` then runs `harness/scripts/stack-check.sh` (decision 0021,
+`harness/policies/versions.md`). It reads the list `stack` of `harness/config.yml` and the release
+data of <https://endoflife.date>, and needs `jq`.
+
+| Finding | Result |
+|---|---|
+| a line without support | fails, with or without ADR |
+| a newer LTS line, LTS for at least `stack_lts_grace_days` days (30), entry without `adr:<NNNN>` | fails |
+| a line that is not LTS while the product has LTS lines, entry without `adr:<NNNN>` | fails |
+| `adr:<NNNN>` without a file `docs/adr/NNNN-*.md` | fails |
+| an empty list in a repository with a dependency manifest | fails |
+| a product or a line that endoflife.date does not have, an entry of another form | fails, exit 2 |
+| no answer from endoflife.date | fails; start the run again |
+| a newer LTS line inside the grace period or with ADR, support that ends within 90 days, a newer line of a product without LTS lines | note |
+
+`harness/scripts/stack-check.sh --latest <product>` prints the line a new decision takes and the
+other supported lines.
+
+## Daily run
+
+`.github/workflows/security-watch.yml` runs `make deps` every day on the default branch, so a
+vulnerability published after the merge and a line that aged are found without a pull request. It
+runs only with `security_watch: true` in `harness/config.yml`; set it with the first production
+release. A manual start (`gh workflow run security-watch.yml`) always runs.
+
+A finding fails the run. GitHub sends its mail for a failed scheduled run to the person who last
+changed the schedule of the workflow file. With the secret `SECURITY_WATCH_SLACK_WEBHOOK` (a Slack
+incoming webhook) the run also posts the end of the output to that channel. GitHub stops scheduled
+runs of a repository without activity for 60 days.
 
 ## Generated files
 
