@@ -28,7 +28,7 @@ policy fixes which release line a decision takes and how the project finds a lin
 ## Enforcement
 
 - `make deps` runs `harness/scripts/stack-check.sh` after the dependency scan. It fails for a line
-  without support, for a newer LTS line that is LTS for more than `stack_lts_grace_days`
+  without support, for a newer LTS line that is LTS for at least `stack_lts_grace_days` days
   (`harness/config.yml`, default 30) and has no ADR, for a line that is not LTS without ADR, for an
   ADR that `docs/adr/` does not have, and for an empty list in a repository with a dependency
   manifest. Inside the grace period the newer line is a note with the date of the block.

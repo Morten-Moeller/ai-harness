@@ -27,7 +27,7 @@ The gate `deps` scans the lock files for known vulnerabilities (OSV-Scanner). Th
   `adr:<NNNN>`, with the names of endoflife.date.
 - `harness/scripts/stack-check.sh` compares the list with the API of endoflife.date. `make deps`
   runs it after OSV-Scanner. Blocking: a line without support; a newer LTS line without ADR once it
-  is LTS for more than `stack_lts_grace_days` (30); a line that is not LTS without ADR; a named ADR
+  is LTS for `stack_lts_grace_days` days (30); a line that is not LTS without ADR; a named ADR
   that does not exist; an empty list in a repository with a dependency manifest. The person chose
   the block for a newer LTS line and the 30 days (session of 2026-11-23).
 - `stack-check.sh --latest <product>` is the lookup for `/roadmap`, `/adr` and `/spec`.
@@ -55,7 +55,7 @@ Not chosen:
 
 - A project with a dependency manifest and no `stack` list fails `deps` after the update. Manual
   step in the changelog.
-- On day 31 after a line becomes LTS every pull request of a project on the older line fails until
+- 30 days after a line becomes LTS every pull request of a project on the older line fails until
   the upgrade or the ADR merged. The note with the date of the block shows 30 days before.
 - `deps` needs `jq` and an answer from endoflife.date. An outage of the site blocks pull requests
   until a new run.

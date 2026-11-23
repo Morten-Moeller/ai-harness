@@ -9,7 +9,7 @@
 # database and base image: "<product> <line>" or "<product> <line> adr:<NNNN>", with the product
 # and line names of https://endoflife.date.
 # Blocking: a line without support (an ADR does not lift this); a newer LTS line that is LTS for
-# more than stack_lts_grace_days (default 30) and has no ADR; a line that is not LTS while the
+# at least stack_lts_grace_days days (default 30) and has no ADR; a line that is not LTS while the
 # product has LTS lines and the entry has no ADR; an ADR that docs/adr/ does not have; an empty
 # list in a repository with a dependency manifest.
 # Notes: support that ends within 90 days, a newer LTS line inside the grace period or with an

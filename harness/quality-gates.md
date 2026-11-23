@@ -71,7 +71,7 @@ data of <https://endoflife.date>, and needs `jq`.
 | Finding | Result |
 |---|---|
 | a line without support | fails, with or without ADR |
-| a newer LTS line, LTS for more than `stack_lts_grace_days` (30), entry without `adr:<NNNN>` | fails |
+| a newer LTS line, LTS for at least `stack_lts_grace_days` days (30), entry without `adr:<NNNN>` | fails |
 | a line that is not LTS while the product has LTS lines, entry without `adr:<NNNN>` | fails |
 | `adr:<NNNN>` without a file `docs/adr/NNNN-*.md` | fails |
 | an empty list in a repository with a dependency manifest | fails |
