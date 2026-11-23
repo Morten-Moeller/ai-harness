@@ -100,8 +100,9 @@ folder. Copy by hand loses them. Options: `--source-paths frontend/src,backend/s
 
 `setup-repo.sh` creates the labels, enables auto-merge, Dependabot alerts and security updates on
 the repository and imports the branch ruleset. Rulesets need a public repository or GitHub Pro;
-without one the script says so, and `auto-merge.yml` does not enable auto-merge on a branch without required checks. No secret is
-needed: the reviews run in the session. Optional: `claude setup-token` and
+without one the script says so, and `auto-merge.yml` does not enable auto-merge on a branch
+without required checks. No secret is needed: the reviews run in the session. Optional:
+`claude setup-token` and
 `gh secret set CLAUDE_CODE_OAUTH_TOKEN` let CI run `/review` itself (works with a Claude
 subscription); `AUTOMERGE_TOKEN` (a PAT) lets auto-merge work on Dependabot PRs.
 
