@@ -28,6 +28,8 @@ workflow, the gates and the policies in `harness/` apply to every change.
 - Stack rules: `project-rules/frontend.md`, `project-rules/backend.md`, `project-rules/testing.md`.
 - Test data only through the command in `project-rules/testing.md` (skill `test-data`). Never
   write rows by hand.
+- Versions of the stack: `harness/policies/versions.md`. Newest LTS line from a lookup
+  (`harness/scripts/stack-check.sh --latest <product>`), never from memory.
 
 ## Hard constraints
 
