@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Configures the GitHub repository for the harness: labels, auto-merge, branch ruleset.
+# Configures the GitHub repository for the harness: labels, auto-merge, Dependabot alerts and
+# security updates, branch ruleset.
 #
 # Usage (from the project root, gh logged in):
 #   setup-repo.sh [--repo owner/name] [--dry-run]
@@ -56,6 +57,13 @@ if ! run gh repo edit "$REPO" --enable-auto-merge 2>"$err"; then
   missing="${missing}auto-merge "
 fi
 
+echo "dependabot alerts and security updates"
+if ! run gh api -X PUT "repos/$REPO/vulnerability-alerts" --silent 2>"$err"; then
+  echo "dependabot alerts not enabled: $(head -1 "$err")"
+elif ! run gh api -X PUT "repos/$REPO/automated-security-fixes" --silent 2>"$err"; then
+  echo "dependabot security updates not enabled: $(head -1 "$err")"
+fi
+
 echo "ruleset"
 ruleset="$ROOT/harness/github/ruleset.json"
 name=$(jq -r .name "$ruleset")
@@ -81,6 +89,9 @@ Optional secrets (gh secret set <NAME> --repo $REPO):
                            without it /review runs in your session and sets the status ai-review
   ANTHROPIC_API_KEY        alternative to the OAuth token
   AUTOMERGE_TOKEN          PAT so auto-merge works on Dependabot PRs (GITHUB_TOKEN is read-only there)
+  SECURITY_WATCH_SLACK_WEBHOOK
+                           Slack incoming webhook for findings of the daily run (security-watch.yml,
+                           active with security_watch: true in harness/config.yml)
 
 The required status checks in the ruleset appear in GitHub after the first workflow run.
 MSG

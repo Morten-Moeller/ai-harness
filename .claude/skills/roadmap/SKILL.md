@@ -39,12 +39,20 @@ answered or recorded under `## Offene Fragen`:
 Skip what the argument, the code or the roadmap answers. Offer concrete options with a
 recommendation (for example two stacks that fit the constraints), not only open questions.
 
+Every version in an option comes from a lookup in this session, not from memory
+(`harness/policies/versions.md`, V2): `harness/scripts/stack-check.sh --latest <product>` for each
+runtime, language, framework, database and base image. Offer the newest LTS line, or the newest
+supported line of a product without LTS lines. An older line only with the component that does not
+support the newest line and a source for it.
+
 ## 3. Roadmap
 
 1. `docs/roadmap.md` from `.claude/skills/roadmap/template.md`, in `doc_language`. `Stand` today.
 2. Basic decisions (stack, persistence, authentication, hosting): one ADR each with the steps of
    `.claude/skills/adr/SKILL.md`, status `proposed`, linked in the table. A decision that replaces
-   a rule of `harness/architecture.md` or `harness/testing.md` names the rule number.
+   a rule of `harness/architecture.md` or `harness/testing.md` names the rule number. The stack
+   ADR lists each release line with the date and the source of the lookup, and for a line older
+   than the newest LTS line the reason by V3 of `harness/policies/versions.md`.
 3. Specs: cut the goal into specs that each deliver something a person can check (a screen, an
    endpoint, a report) and fit one pull request. Numbers in order from the highest of
    `docs/specs/NNNN-*`, the spec table of the roadmap and the branch names `<type>/<NNNN>-*`
@@ -52,7 +60,10 @@ recommendation (for example two stacks that fit the constraints), not only open 
 4. Waves:
    - A new project (no source code besides the bootstrap): wave 1 is one spec, the skeleton:
      structure, build, real `test`, `typecheck` and `lint` targets, one path from a screen to the
-     database, `project-rules/testing.md` filled in. Every other spec depends on it.
+     database, `project-rules/testing.md` filled in, the list `stack` in `harness/config.yml`
+     with the release lines of the stack ADR, the same lines in the toolchain files and in
+     `.github/actions/setup/action.yml`, and the package ecosystems of the project in
+     `.github/dependabot.yml`. Every other spec depends on it.
    - A spec goes into the first wave after every spec it depends on. A spec that needs an ADR of
      this run depends on the first spec of the wave, which carries the ADR.
    - Specs of one wave change separate areas. Two specs that both change `contracts/`, migrations,

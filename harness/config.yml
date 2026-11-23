@@ -24,6 +24,24 @@ contracts_generate_target: ""
 # the check passes without running.
 e2e_in_ci: false
 
+# Release lines of the stack (harness/policies/versions.md, decision 0021). One entry per runtime,
+# language, framework, database and base image: "<product> <line>", with the product and line
+# names of https://endoflife.date. An entry on a line older than the newest LTS line names the ADR
+# with the reason: "<product> <line> adr:<NNNN>". `make deps` fails for a line without support and
+# for a newer LTS line without ADR. Lookup: harness/scripts/stack-check.sh --latest <product>.
+# Example:
+#   - "eclipse-temurin 25"
+#   - "nodejs 24 adr:0003"
+stack:
+
+# Days after a line became LTS before `make deps` fails for a stack entry on an older line.
+stack_lts_grace_days: 30
+
+# Daily run of `make deps` on the default branch (.github/workflows/security-watch.yml). Set true
+# with the first production release. A finding fails the run and goes to Slack when the secret
+# SECURITY_WATCH_SLACK_WEBHOOK is set.
+security_watch: false
+
 # The size escalator: more changed lines than this raises low to medium.
 low_risk_max_lines: 200
 

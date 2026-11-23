@@ -8,7 +8,8 @@ sources: []
 
 ## Stack
 
-- Language, runtime and version: TODO
+- Language, runtime and version: TODO (newest LTS line by `harness/policies/versions.md`; the
+  release lines also stand in `stack` of `harness/config.yml`)
 - Framework: TODO
 - Database and migration tool: TODO
 

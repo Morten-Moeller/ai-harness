@@ -25,14 +25,16 @@ AI Development Harness
 │
 ├── Quality Gates             harness/quality-gates.md, Makefile, .github/workflows/quality-gates.yml
 │   ├── test  typecheck  lint
-│   ├── sast  deps  drift
-│   └── e2e (optional)  precommit (optional)
+│   ├── sast  deps (vulnerabilities, stack versions)  drift
+│   ├── e2e (optional)  precommit (optional)
+│   └── security-watch.yml: deps every day on the default branch (security_watch: true)
 │
 └── Policies                  harness/policies/
     ├── When is an ADR required?            adr.md
     ├── When is human approval required?    human-approval.md
     ├── What is low / medium / high risk?   risk.md
-    └── What may be merged automatically?   auto-merge.md
+    ├── What may be merged automatically?   auto-merge.md
+    └── Which version does the stack take?  versions.md (newest LTS line, checked by deps)
 
 Project Context
 │
@@ -88,16 +90,17 @@ cd /path/to/new-project
 # 1. fill the gate targets in Makefile (test, lint, typecheck)
 # 2. fill .github/actions/setup/action.yml with the toolchain setup
 # 3. fill project-rules/*.md and docs/domain/glossary.md
-# 4. review harness/config.yml and harness/risk-matrix.yml
+# 4. review harness/config.yml (list `stack`) and harness/risk-matrix.yml
+# 5. add the package ecosystems of the project to .github/dependabot.yml
 ```
 
 `bootstrap.sh` copies the template with its dotfiles (`.claude/`, `.github/`) into an empty
 folder. Copy by hand loses them. Options: `--source-paths frontend/src,backend/src/main` writes
 `source_paths` of `harness/config.yml`; `--github owner/name` runs `setup-repo.sh` at the end.
 
-`setup-repo.sh` creates the labels, enables auto-merge on the repository and imports the branch
-ruleset. Rulesets need a public repository or GitHub Pro; without one the script says so, and
-`auto-merge.yml` does not enable auto-merge on a branch without required checks. No secret is
+`setup-repo.sh` creates the labels, enables auto-merge, Dependabot alerts and security updates on
+the repository and imports the branch ruleset. Rulesets need a public repository or GitHub Pro;
+without one the script says so, and `auto-merge.yml` does not enable auto-merge on a branch without required checks. No secret is
 needed: the reviews run in the session. Optional: `claude setup-token` and
 `gh secret set CLAUDE_CODE_OAUTH_TOKEN` let CI run `/review` itself (works with a Claude
 subscription); `AUTOMERGE_TOKEN` (a PAT) lets auto-merge work on Dependabot PRs.
@@ -124,6 +127,7 @@ harness versions are listed in `harness/CHANGELOG.md` of the harness repository.
 | Agents do not merge, approve, force-push, push to the default branch, set labels or write commit statuses (except `review-status.sh publish` after a saved review) | the PreToolUse hook `.claude/hooks/guard-bash.sh` and `permissions.deny` `Bash(...)` rules |
 | A change passes every gate | `make check` locally, `quality-gates.yml` as required checks |
 | Committed generated files match their source | the gate `drift` (`harness/scripts/drift.sh`) |
+| The stack runs on the newest LTS line, or an ADR gives the reason; no line without support | the gate `deps` (`harness/scripts/stack-check.sh`, `harness/policies/versions.md`) |
 | Git hooks run on every commit | `.githooks/` through `make setup`; the guard hook denies `--no-verify` |
 | The baseline holds unless an ADR replaces a rule | the architecture and code reviews name the rule number; a deviation without ADR is blocking (`harness/policies/adr.md`) |
 | A project rule that a check enforces is not reviewed again | `(geprüft: <check>)` in `project-rules/`; `lint-ratchet.sh` for checks on old code |

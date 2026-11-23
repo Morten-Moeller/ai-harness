@@ -1,0 +1,64 @@
+name: Security watch
+
+# Daily run of `make deps` on the default branch (decision 0021): known vulnerabilities in the
+# dependencies and the release lines of the stack (harness/policies/versions.md). Runs only with
+# security_watch: true in harness/config.yml; a manual start always runs. A finding fails the run
+# (GitHub sends its mail) and goes to Slack when the secret SECURITY_WATCH_SLACK_WEBHOOK is set.
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    name: security-watch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Watch active
+        id: active
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ] || [ "$(awk '$1 == "security_watch:" { print $2; exit }' harness/config.yml)" = true ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "security_watch is not true: no daily run (harness/policies/versions.md)."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: ./.github/actions/setup
+        if: ${{ steps.active.outputs.run == 'true' }}
+
+      - name: make deps
+        id: deps
+        if: ${{ steps.active.outputs.run == 'true' }}
+        shell: bash
+        run: make deps 2>&1 | tee "$RUNNER_TEMP/deps.log"
+
+      - name: Slack message
+        if: ${{ failure() && steps.deps.conclusion == 'failure' }}
+        shell: bash
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SECURITY_WATCH_SLACK_WEBHOOK }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK" ]; then
+            echo "SECURITY_WATCH_SLACK_WEBHOOK is not set: no Slack message. GitHub sends the mail for the failed run."
+            exit 0
+          fi
+          tail -c 2500 "$RUNNER_TEMP/deps.log" > "$RUNNER_TEMP/deps.tail"
+          jq -n --arg repo "$REPO" --arg url "$RUN_URL" --rawfile log "$RUNNER_TEMP/deps.tail" \
+            '{text: ("Security watch: make deps failed in " + $repo + "\n" + $url + "\n```\n" + $log + "\n```")}' \
+            | curl -fsS --max-time 20 -X POST -H 'Content-Type: application/json' --data @- "$SLACK_WEBHOOK" >/dev/null

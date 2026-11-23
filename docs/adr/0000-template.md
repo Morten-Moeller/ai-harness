@@ -24,7 +24,11 @@ Ersetzt Grundregeln: <A1.2, T1.3 aus harness/architecture.md und harness/testing
 
 ## Entscheidung
 
-<!-- Welche Option und warum. Ein Absatz. -->
+<!-- Welche Option und warum. Ein Absatz.
+     Nennt die Entscheidung eine Version: Release-Linie, Datum und Quelle der Abfrage
+     (harness/scripts/stack-check.sh --latest <produkt>). Eine ältere Linie als die neueste
+     LTS-Linie: welche Komponente die neueste nicht unterstützt, Quelle, Bedingung für den Wechsel
+     (harness/policies/versions.md). -->
 
 ## Folgen
 
