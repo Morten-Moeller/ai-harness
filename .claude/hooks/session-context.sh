@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SessionStart hook. Prints the harness version, the specs that are not done and the open pull
-# requests whose head has no status ai-review (decision 0022). The ruleset requires that status, and
+# requests whose head has no status ai-review = success (decision 0022). The ruleset requires that status, and
 # without a review token in CI only a session sets it for medium and high risk.
 # stdout of a SessionStart hook becomes context for the session.
 set -u
@@ -18,10 +18,11 @@ fi
 unreviewed() {
   command -v gh >/dev/null 2>&1 || return 0
   git -C "$ROOT" remote get-url origin 2>/dev/null | grep -q 'github\.com' || return 0
-  (cd "$ROOT" && gh pr list --state open --limit 50 --json number,title,isDraft,statusCheckRollup \
+  (cd "$ROOT" && gh pr list --state open --limit 50 --json number,isDraft,statusCheckRollup \
     --jq '.[] | select(.isDraft | not)
-          | select([.statusCheckRollup[]? | select(.context == "ai-review")] | length == 0)
-          | "  #\(.number) \(.title): /review \(.number)"')
+          | ([.statusCheckRollup[]? | select(.context == "ai-review") | .state] | first // "none") as $s
+          | select($s != "SUCCESS")
+          | "  #\(.number): ai-review \($s | ascii_downcase), /review \(.number)"')
 }
 
 out=$(mktemp 2>/dev/null) || exit 0
@@ -32,7 +33,7 @@ while kill -0 "$pid" 2>/dev/null && [ "$i" -lt 50 ]; do sleep 0.1; i=$((i + 1));
 if kill -0 "$pid" 2>/dev/null; then
   { kill "$pid"; wait "$pid"; } 2>/dev/null
 elif [ -s "$out" ]; then
-  echo "Open pull requests without the status ai-review; the merge waits for it:"
+  echo "Open pull requests without ai-review = success; the merge waits for it:"
   cat "$out"
 fi
 rm -f "$out"

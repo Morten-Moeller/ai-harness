@@ -153,10 +153,11 @@ chmod +x "$TMP/fakegh/gh"
 cat > "$TMP/prs.json" <<'J'
 [{"number":15,"title":"chore(ci): bump","isDraft":false,"statusCheckRollup":[{"__typename":"CheckRun","name":"risk"}]},
  {"number":16,"title":"feat: done","isDraft":false,"statusCheckRollup":[{"__typename":"StatusContext","context":"ai-review","state":"SUCCESS"}]},
- {"number":17,"title":"feat: draft","isDraft":true,"statusCheckRollup":[]}]
+ {"number":17,"title":"feat: draft","isDraft":true,"statusCheckRollup":[]},
+ {"number":18,"title":"feat: failed","isDraft":false,"statusCheckRollup":[{"__typename":"StatusContext","context":"ai-review","state":"FAILURE"}]}]
 J
 hook() { CLAUDE_PROJECT_DIR="$ROOT" PATH="$TMP/fakegh:$PATH" FAKE_GH_JSON="$TMP/prs.json" "$ROOT/.claude/hooks/session-context.sh"; }
-check "session hook names a pull request without ai-review" "  #15 chore(ci): bump: /review 15" "$(hook | grep '#1[567]')"
+check "session hook names pull requests without ai-review = success" "  #15: ai-review none, /review 15|  #18: ai-review failure, /review 18" "$(hook | grep '#1[5678]' | tr '\n' '|' | sed 's/|$//')"
 check "session hook stays silent when gh does not answer in time" "" "$(FAKE_GH_SLEEP=8 hook | grep 'ai-review' || true)"
 out=$(echo '{"hook_event_name":"Stop","stop_hook_active":false}' | CLAUDE_PROJECT_DIR="$ROOT" "$ROOT/.claude/hooks/stop-reminder.sh"; echo "exit=$?")
 check "stop hook exits 0" "exit=0" "$(printf '%s' "$out" | tail -1)"

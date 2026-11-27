@@ -50,7 +50,8 @@ The person chose one option per gap in the session of 2026-11-24.
    prevent it.
 4. **A deterministic review rule `zeilenende`.** `review-rules.sh` reports each changed text file
    whose content in the head has CRLF although `.gitattributes` sets LF for the repository
-   (`git ls-files --eol`: `i/crlf` with attribute `text`). Blocking, with the fix in the message
+   (`git ls-files --eol`: `i/crlf` with attribute `text`, or `text=auto` for content that is not
+   binary). Blocking, with the fix in the message
    (`git add --renormalize <file>`). CI runs the rule in `review-rules`, so a Dependabot pull
    request fails before the merge.
 

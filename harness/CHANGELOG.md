@@ -26,11 +26,11 @@ Changes:
   without a person when the gates pass. Major updates stay medium.
 - `human-gate.sh`: when the label or an approval passes G2, the output names a missing or failed
   status `ai-review` on the head and the command `/review <n>`.
-- Session start hook: lists the open pull requests without the status `ai-review`, with the
-  command. One request to GitHub, at most five seconds; without `gh` or network it prints nothing.
+- Session start hook: lists the open pull requests without `ai-review` = success, with the state
+  and the command. One request to GitHub, at most five seconds; without `gh` or network it prints nothing.
 - `quality-gates.yml`: trigger `workflow_dispatch`. `branch-cleanup.yml` (hourly): job `gates`
   starts it for the head of the default branch when that commit has no run, so a merge through
-  auto-merge is tested on the default branch. The workflow needs `actions: write`.
+  auto-merge is tested on the default branch. The job has `actions: write`.
 - `review-rules.sh`: rule `zeilenende`, blocking. A changed text file whose content in the head has
   CRLF although `.gitattributes` sets `text` or `text=auto`; the message names
   `git add --renormalize <file>`. CI runs it in `review-rules`, also for Dependabot.

@@ -15,7 +15,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: write
   contents: write
   pull-requests: read
 
@@ -60,6 +59,9 @@ jobs:
   gates:
     name: gates on the default branch
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
     steps:
       - name: Start the gates for an untested head
         env:
