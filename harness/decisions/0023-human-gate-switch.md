@@ -44,8 +44,9 @@ set before `verified` no longer needs a second label event.
 ### 3. `needs-human` puts G2 back on one pull request
 
 For an exempt level `human-gate.sh` falls back to G2 as today (label after the last push, or an
-approval) when the pull request has the label `needs-human`. `review-rules` sets it for a changed
-gate or a switched-off test; a person can set it on any pull request. The message names the
+approval) when the pull request has the label `needs-human`. `ai-review.yml` sets it when the job
+`review-rules` finds a changed gate or a switched-off test; a person can set it on any pull
+request. The message names the
 reason.
 
 The key applies to every author (the person chose this on 2026-11-26): `auto_merge_allowlist`
@@ -149,8 +150,12 @@ Not chosen:
   set `verified`.
 - A session that runs a whole roadmap stays open for hours and waits on CI. A closed session ends
   the loop; `/wave` with the next numbers continues it.
-- Tests: `harness/scripts/tests/` gets cases for `human-gate.sh` (each value of the key, the two
-  fallback `needs-human`, the missing key, an unknown value, the order with `second_reviewer_for`).
+- Tests: `harness/scripts/tests/` gets cases for `human-gate.sh` (each value of the key,
+  `needs-human` with and without the label of a person, a bot, the missing key, an unknown value,
+  the order with `second_reviewer_for`).
+- A pull request by a bot of an exempt level needs neither a person nor `verified`: the gates,
+  `review-rules` and `ai-review` are its checks. With `human_gate_for: ""` this includes a
+  Dependabot major update and an update of a GitHub Actions workflow (high).
 - Version 0.10.0, after 0022 (both change `human-gate.sh`). `update.sh` brings scripts, skills and
   workflows. Manual step: the two new keys in `harness/config.yml`; without them nothing changes.
   No ruleset change.

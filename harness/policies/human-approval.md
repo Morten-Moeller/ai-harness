@@ -43,9 +43,10 @@ other value fails the gate. The setting is for test projects where the person re
 request; never for a project with production data.
 
 - An exempt level needs the status `verified` = `success` on the head, whatever
-  `verify_required_for` says. Pull requests by bots stay exempt from it, as from G3.
-- The label `needs-human` (set by `review-rules` for a switched-off check, or by a person) puts G2
-  back on that pull request. A level in `second_reviewer_for` is never exempt.
+  `verify_required_for` says. Pull requests by bots stay exempt from it, as from G3: a Dependabot
+  update of an exempt level merges on the gates, `review-rules` and `ai-review` alone.
+- The label `needs-human` (set by `ai-review.yml` on a `gate` finding of `review-rules`, or by a
+  person) puts G2 back on that pull request. A level in `second_reviewer_for` is never exempt.
 - The key applies to every author; `auto_merge_allowlist` plays no part for medium and high.
 - A criterion `nicht prüfbar` does not block the merge. `verify` opens one issue
   `Prüfen: <spec title> (<NNNN>, #<n>)`, assigned to the account of the session, with the steps for

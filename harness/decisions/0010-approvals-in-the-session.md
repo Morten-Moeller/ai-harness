@@ -1,6 +1,6 @@
 # 0010: Spec approval in the session, plan in the spec, the label merges
 
-Status: accepted, 2026-11-10. Changes 0003 and 0006.
+Status: accepted, 2026-11-10. Changes 0003 and 0006. Changed by 0023.
 
 ## Context
 
