@@ -5,6 +5,9 @@ name: Branch cleanup
 # branches" acts only on merges by a person, and a merge through GITHUB_TOKEN starts no workflow,
 # so a job on `closed` never runs. A branch is deleted only when it still points to the merged head
 # commit, never the default branch, never a branch of a fork.
+# The job gates starts quality-gates.yml for the head of the default branch when that commit has no
+# run of it: a merge through GITHUB_TOKEN starts no workflow, a dispatch through it does (decision
+# 0022). A failed run shows within the hour; it does not prevent the merge.
 
 on:
   schedule:
@@ -12,6 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   pull-requests: read
 
@@ -52,3 +56,23 @@ jobs:
               echo "#$pr: $branch not deleted: $(head -1 "$RUNNER_TEMP/err")"
             fi
           done < "$RUNNER_TEMP/merged.tsv"
+
+  gates:
+    name: gates on the default branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start the gates for an untested head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT: ${{ github.event.repository.default_branch }}
+        run: |
+          [ -n "$DEFAULT" ] || DEFAULT=$(gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch)
+          [ -n "$DEFAULT" ] || { echo "No default branch; nothing started."; exit 1; }
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$DEFAULT" --jq .sha)
+          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/quality-gates.yml/runs?head_sha=$sha&per_page=1" --jq .total_count)
+          if [ "$runs" != 0 ]; then
+            echo "$DEFAULT at ${sha:0:7} has $runs run(s) of the gates; nothing to start."
+            exit 0
+          fi
+          gh workflow run quality-gates.yml --repo "$GITHUB_REPOSITORY" --ref "$DEFAULT"
+          echo "Started the gates for $DEFAULT at ${sha:0:7}."

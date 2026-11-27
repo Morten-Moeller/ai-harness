@@ -2,6 +2,39 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.9.0 (2026-11-27)
+
+Dependabot pull requests that merge, and a tested default branch (decision 0022). Found in the
+first project with Dependabot for npm and Maven: five update pull requests with the label, none
+merged.
+
+Breaking: the new review rule `zeilenende` blocks a pull request that changes a text file stored
+with CRLF.
+
+Manual steps after `update.sh`:
+
+- Before the update: `git ls-files --eol | grep 'i/crlf.*attr/text'`. Each file it lists is stored
+  with CRLF against `.gitattributes`. Fix them in one pull request: `git add --renormalize <file>`,
+  commit, push. Otherwise the next pull request that changes such a file fails `review-rules`.
+- `harness/config.yml` (project-owned, `update.sh` shows the diff): the comment above
+  `review_rules_disabled` names the new rule. No new key.
+
+Changes:
+
+- `risk-level.sh`: no size escalator for a Dependabot patch or minor update that changes only
+  manifests and lock files. A group update with a large lock file diff stays low and merges
+  without a person when the gates pass. Major updates stay medium.
+- `human-gate.sh`: when the label or an approval passes G2, the output names a missing or failed
+  status `ai-review` on the head and the command `/review <n>`.
+- Session start hook: lists the open pull requests without the status `ai-review`, with the
+  command. One request to GitHub, at most five seconds; without `gh` or network it prints nothing.
+- `quality-gates.yml`: trigger `workflow_dispatch`. `branch-cleanup.yml` (hourly): job `gates`
+  starts it for the head of the default branch when that commit has no run, so a merge through
+  auto-merge is tested on the default branch. The workflow needs `actions: write`.
+- `review-rules.sh`: rule `zeilenende`, blocking. A changed text file whose content in the head has
+  CRLF although `.gitattributes` sets `text` or `text=auto`; the message names
+  `git add --renormalize <file>`. CI runs it in `review-rules`, also for Dependabot.
+
 ## 0.8.0 (2026-11-23)
 
 Stack versions and security watch (decision 0021). A stack decision takes the newest LTS line from

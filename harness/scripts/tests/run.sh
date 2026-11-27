@@ -56,6 +56,10 @@ check "manifest with contract is high" high "$(level --files-from "$(files packa
 check "size raises low to medium" medium "$(level --files-from "$(files docs/a.md)" --lines 300)"
 check "size below the limit keeps low" low "$(level --files-from "$(files docs/a.md)" --lines 200)"
 check "size does not raise medium" medium "$(level --files-from "$(files src/a.ts)" --lines 5000)"
+check "size does not raise a dependabot minor group of manifests" low "$(level --files-from "$(files package.json pnpm-lock.yaml backend/pom.xml)" --dependabot version-update:semver-minor --lines 706)"
+check "size does not raise a dependabot patch of manifests" low "$(level --files-from "$(files go.mod go.sum)" --dependabot version-update:semver-patch --lines 390)"
+check "a large dependabot patch with another file stays medium" medium "$(level --files-from "$(files package.json docs/a.md)" --dependabot version-update:semver-patch --lines 390)"
+check "size still applies to manifests changed by a person" medium "$(level --files-from "$(files package.json)" --lines 390)"
 
 cat > "$TMP/diff-src" <<'D'
 diff --git a/src/a.ts b/src/a.ts
@@ -137,6 +141,23 @@ check "unknown format exits 2" "2" "$("$RISK" --files-from "$(files a.md)" --for
 out=$(CLAUDE_PROJECT_DIR="$ROOT" "$ROOT/.claude/hooks/session-context.sh"; echo "exit=$?")
 check "session hook exits 0" "exit=0" "$(printf '%s' "$out" | tail -1)"
 check "session hook names the harness" "yes" "$(printf '%s' "$out" | grep -q 'AI harness' && echo yes || echo no)"
+mkdir -p "$TMP/fakegh"
+cat > "$TMP/fakegh/gh" <<'G'
+#!/usr/bin/env bash
+q=""
+while [ $# -gt 0 ]; do case "$1" in --jq) q="$2"; shift 2 ;; *) shift ;; esac; done
+[ -n "${FAKE_GH_SLEEP:-}" ] && sleep "$FAKE_GH_SLEEP"
+jq -r "$q" "$FAKE_GH_JSON"
+G
+chmod +x "$TMP/fakegh/gh"
+cat > "$TMP/prs.json" <<'J'
+[{"number":15,"title":"chore(ci): bump","isDraft":false,"statusCheckRollup":[{"__typename":"CheckRun","name":"risk"}]},
+ {"number":16,"title":"feat: done","isDraft":false,"statusCheckRollup":[{"__typename":"StatusContext","context":"ai-review","state":"SUCCESS"}]},
+ {"number":17,"title":"feat: draft","isDraft":true,"statusCheckRollup":[]}]
+J
+hook() { CLAUDE_PROJECT_DIR="$ROOT" PATH="$TMP/fakegh:$PATH" FAKE_GH_JSON="$TMP/prs.json" "$ROOT/.claude/hooks/session-context.sh"; }
+check "session hook names a pull request without ai-review" "  #15 chore(ci): bump: /review 15" "$(hook | grep '#1[567]')"
+check "session hook stays silent when gh does not answer in time" "" "$(FAKE_GH_SLEEP=8 hook | grep 'ai-review' || true)"
 out=$(echo '{"hook_event_name":"Stop","stop_hook_active":false}' | CLAUDE_PROJECT_DIR="$ROOT" "$ROOT/.claude/hooks/stop-reminder.sh"; echo "exit=$?")
 check "stop hook exits 0" "exit=0" "$(printf '%s' "$out" | tail -1)"
 out=$(echo '{"stop_hook_active":true}' | CLAUDE_PROJECT_DIR="$ROOT" "$ROOT/.claude/hooks/stop-reminder.sh")
@@ -275,6 +296,15 @@ c=$(gate_cfg human-approved '""' '""')
 check "gate G3: verify_required_for empty switches it off" pass "$(gate --level high --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/verified-none.json")"
 c=$(gate_cfg human-approved '""' High)
 check "gate G3: unknown verify_required_for fails closed" fail "$(gate --level medium --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json")"
+printf '{"state":"success","statuses":[{"context":"verified","state":"success"}]}\n' > "$TMP/review-none.json"
+printf '{"state":"failure","statuses":[{"context":"ai-review","state":"failure"}]}\n' > "$TMP/review-failed.json"
+c=$(gate_cfg human-approved '""')
+gate_out() { "$HG" --pr 7 --sha "$SHA_A" --author author --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --events-json "$TMP/label-user-noon.json" --pushed-at 2026-11-09T11:00:00Z --permissions "author=admin" "$@" 2>&1; }
+check "gate: the label passes without the status ai-review" pass "$(gate --level medium --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/review-none.json")"
+check "gate: the label names a missing ai-review and /review" yes "$(gate_out --level high --statuses-json "$TMP/review-none.json" | grep -q 'no status ai-review.*/review 7' && echo yes || echo no)"
+check "gate: the label names a failed ai-review" yes "$(gate_out --level medium --statuses-json "$TMP/review-failed.json" | grep -q 'ai-review = failure' && echo yes || echo no)"
+check "gate: no note with ai-review = success" "" "$(gate_out --level medium --statuses-json "$TMP/verified-ok.json" | grep 'ai-review' || true)"
+check "gate: an approval names a missing ai-review" yes "$(gate_out --level medium --labels "" --reviews-json "$TMP/approved-a.json" --permissions "reviewer=write" --statuses-json "$TMP/review-none.json" | grep -q 'no status ai-review' && echo yes || echo no)"
 check "gate: bad sha is a usage error" "2" "$("$HG" --level medium --pr 7 --sha abc --author author >/dev/null 2>&1; echo $?)"
 
 # Review rules, in a temporary project repository
@@ -379,6 +409,37 @@ rrgit checkout -q main -- src/a.ts
 printf 'no-console 3\n' > "$RR/lint-baseline.txt"
 check "rules: the lint baseline is a gate file" "nein" "$(rule_rows "$(rr)" gate)"
 rm -f "$RR/lint-baseline.txt"
+
+# Review rule zeilenende, in its own repository: a CRLF file committed before .gitattributes
+EL="$TMP/el"
+mkdir -p "$EL/harness/scripts" "$EL/backend"
+cp "$ROOT/harness/scripts/review-rules.sh" "$ROOT/harness/scripts/risk-level.sh" "$EL/harness/scripts/"
+cp "$ROOT/harness/risk-matrix.yml" "$EL/harness/"
+printf 'doc_language: de\nreview_rules_disabled:\n' > "$EL/harness/config.yml"
+elgit() { git -C "$EL" -c user.email=t@example.com -c user.name=t -c core.autocrlf=false "$@"; }
+elgit init -q -b main && elgit add -A && elgit commit -q -m base
+elgit checkout -q -b change
+printf '@echo off\r\nexit 0\r\n' > "$EL/backend/mvnw.cmd"
+printf 'a\r\nb\r\n' > "$EL/backend/notes.bin"
+printf '\000\r\n' > "$EL/backend/data.dat"
+printf 'plain\n' > "$EL/backend/lf.txt"
+elgit add -A && elgit commit -q -m crlf
+printf '* text=auto eol=lf\n*.cmd text eol=crlf\n*.bin -text\n' > "$EL/.gitattributes"
+elgit add .gitattributes && elgit commit -q -m attributes
+git -C "$EL" diff --name-only main > "$TMP/el.files"
+git -C "$EL" diff main > "$TMP/el.diff"
+el() { "$EL/harness/scripts/review-rules.sh" --files-from "$TMP/el.files" --diff-from "$TMP/el.diff" --title "chore: bump" --author "dependabot[bot]" --level low --base-ref main "$@" --format tsv 2>/dev/null || true; }
+out=$(el --head-ref change)
+check "rules: CRLF in a text file blocks" "ja" "$(rule_rows "$out" zeilenende)"
+check "rules: zeilenende names the file and the fix" "yes" "$(printf '%s\n' "$out" | grep -q 'zeilenende	backend/mvnw.cmd	.*git add --renormalize backend/mvnw.cmd' && echo yes || echo no)"
+check "rules: zeilenende skips -text, binary content and LF files" "1" "$(printf '%s\n' "$out" | grep -c '^zeilenende')"
+check "rules: zeilenende reads the index without a head" "ja" "$(rule_rows "$(el)" zeilenende)"
+printf 'doc_language: de\nreview_rules_disabled:\n  - zeilenende\n' > "$EL/harness/config.yml"
+check "rules: zeilenende can be switched off" "" "$(rule_rows "$(el --head-ref change)" zeilenende)"
+printf 'doc_language: de\nreview_rules_disabled:\n' > "$EL/harness/config.yml"
+elgit add --renormalize . && elgit commit -q -m renormalize
+git -C "$EL" diff --name-only main > "$TMP/el.files"
+check "rules: zeilenende passes after git add --renormalize" "" "$(rule_rows "$(el --head-ref change)" zeilenende)"
 
 # Guard hook (.claude/hooks/guard-bash.sh)
 GUARD="$ROOT/.claude/hooks/guard-bash.sh"

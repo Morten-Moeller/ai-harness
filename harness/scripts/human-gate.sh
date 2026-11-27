@@ -12,7 +12,8 @@
 # Without --labels, the *-json options, --pushed-at and --permissions the data comes from the
 # GitHub API. G3: for the levels in verify_required_for the head needs the commit status verified
 # = success; pull requests by bots are exempt. An approval counts only from an account with the
-# permission write, maintain or admin.
+# permission write, maintain or admin. When G2 passes and the head has no status ai-review = success,
+# the output names it: the ruleset requires that status, so the merge waits for it (decision 0022).
 # Exit 0: the gate passes. Exit 1: the gate fails; the output says why. Exit 2: usage error.
 set -euo pipefail
 
@@ -109,12 +110,31 @@ if [ "$need_verify" = 1 ] && [[ "$AUTHOR" == *"[bot]" ]]; then
   echo "Author $AUTHOR is a bot: G3 does not apply, CI is its check."
   need_verify=0
 fi
-if [ "$need_verify" = 1 ]; then
+load_statuses() {
+  [ -f "$TMP/status.json" ] && return 0
   if [ -n "$STATUSES_JSON" ]; then
     cat "$STATUSES_JSON" > "$TMP/status.json"
   else
-    gh api "repos/$REPO/commits/$SHA/status?per_page=100" > "$TMP/status.json"
+    gh api "repos/$REPO/commits/$SHA/status?per_page=100" > "$TMP/status.part"
+    mv "$TMP/status.part" "$TMP/status.json"
   fi
+}
+
+passed_g2() {
+  local review
+  if load_statuses 2>/dev/null; then
+    review=$(jq -r '[.statuses[]? | select(.context == "ai-review")] | first | .state // ""' "$TMP/status.json" 2>/dev/null || true)
+    case "$review" in
+      success) ;;
+      "") echo "Commit $short has no status ai-review: the merge waits for it. A session runs /review $PR." ;;
+      *) echo "Commit $short has the status ai-review = $review: the merge waits until the blocking findings are fixed and /review $PR passes." ;;
+    esac
+  fi
+  pass "$1"
+}
+
+if [ "$need_verify" = 1 ]; then
+  load_statuses
   verified=$(jq -r '[.statuses[]? | select(.context == "verified")] | first | .state // ""' "$TMP/status.json")
   case "$verified" in
     success) echo "Risk $LEVEL: verified on commit $short (G3)." ;;
@@ -149,7 +169,7 @@ for login in $candidates; do
     *) echo "Approval by $login on commit $short does not count: no write permission found." ;;
   esac
 done
-[ -n "$approvers" ] && pass "Risk $LEVEL: approved on commit $short by $approvers (G2)."
+[ -n "$approvers" ] && passed_g2 "Risk $LEVEL: approved on commit $short by $approvers (G2)."
 
 need_second=0
 case "$second" in
@@ -192,7 +212,7 @@ fi
 [ -n "$PUSHED_AT" ] || fail "Risk $LEVEL: no workflow run found for commit $short, so the time of its push is unknown."
 
 if [[ "$labeled_at" > "$PUSHED_AT" ]]; then
-  pass "Risk $LEVEL: label '$label' set by a person at $labeled_at, after the push of $short at $PUSHED_AT (G2)."
+  passed_g2 "Risk $LEVEL: label '$label' set by a person at $labeled_at, after the push of $short at $PUSHED_AT (G2)."
 fi
 remove_stale "$label"
 fail "Risk $LEVEL: the label '$label' dates from $labeled_at, before the push of $short at $PUSHED_AT. The push time is the start of the first workflow run of the commit, a few seconds after the push, so a label set within those seconds counts as before it. Review the new commits, then set the label again."
