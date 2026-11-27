@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Verify an open pull request against the acceptance criteria of its spec before the merge - run make check and the affected tests, walk the application when a criterion names a screen, write the result table into the PR body, set the spec to done or in Arbeit and the commit status verified that the human gate reads for G3.
+description: Verify an open pull request against the acceptance criteria of its spec before the merge - take the gate results of CI for the head or run the gates, run the affected tests, walk the application when a criterion names a screen, write the result table into the PR body, set the spec to done or in Arbeit and the commit status verified that the human gate reads for G3.
 when_to_use: Load when the user runs /verify, from implement once CI passed on a medium or high risk pull request, or after a push of this session to an open medium or high risk pull request whose head has no status verified. Never for a merged or closed pull request.
 argument-hint: <PR number | spec id>
 ---
@@ -56,11 +56,17 @@ No criterion names a screen: the body says `Kein Browser-Test: <Grund>`.
 
 ## 4. Automated checks
 
-Run `make check` and the tests of the touched areas, end-to-end included. Test data with the steps
-of `.claude/skills/test-data/SKILL.md`. Keep the output of every failing check. Never weaken a
-check or a test to make it pass. A gate that prints `übersprungen` did not run; the line
-`Automatisch` names it, and the CI result of that gate counts. Started from `implement`: its gate
-results count when the head changed since only under `docs/specs/`.
+1. CI results first (decision 0024): `harness/scripts/review-status.sh gates --sha <head>`. A gate
+   with `success` on the head is not run again; CI ran it on this commit, or `gate-scope.sh` found
+   nothing for it to check. Each other gate (`failure`, `cancelled`, `none`): `make <gate>`.
+   Started from `implement`: its gate results count when the head changed since only under
+   `docs/specs/`.
+2. The tests of the touched areas that the criteria name, and the end-to-end tests when
+   `e2e_in_ci` is not `true`. CI does not run these selections. Test data with the steps of
+   `.claude/skills/test-data/SKILL.md`.
+3. Keep the output of every failing check. Never weaken a check or a test to make it pass. A gate
+   that prints `übersprungen` did not run; the line `Automatisch` names it, and the CI result of
+   that gate counts. The line `Automatisch` names the source per gate: `CI <sha 7>` or `lokal`.
 
 ## 5. Browser walk
 
@@ -81,7 +87,7 @@ write it back with `gh pr edit <n> --body-file <file>`. No PR comment. Language:
 ## Akzeptanzkriterien
 
 Geprüft: <YYYY-MM-DD>, Commit <checked SHA>, Branch hinter <base>: <ja/nein>
-Automatisch: make check <grün | FEHLER: Gate>; Tests <Auswahl>: <grün | FEHLER: ...>
+Automatisch: Gates <grün (CI <sha 7>: test, ...; lokal: ...) | FEHLER: Gate>; Tests <Auswahl>: <grün | FEHLER: ...>
 Browser: <Umfang | Kein Browser-Test: Grund>
 
 | Kriterium | Nachweis | Ergebnis |

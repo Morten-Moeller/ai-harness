@@ -1,6 +1,6 @@
 # 0018: Verification before the merge, recorded as the status verified
 
-Status: accepted, 2026-11-11. Changes 0010 and the G3 rule of `harness/policies/human-approval.md`.
+Status: accepted, 2026-11-11. Changes 0010 and the G3 rule of human-approval.md. Changed by 0024.
 
 ## Context
 

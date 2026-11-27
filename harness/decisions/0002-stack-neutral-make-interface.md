@@ -1,6 +1,6 @@
 # 0002: Quality gates are make targets with fixed names
 
-Status: accepted, 2026-11-09
+Status: accepted, 2026-11-09. Changed by 0024.
 
 ## Context
 
