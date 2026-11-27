@@ -144,7 +144,7 @@ check "session hook names the harness" "yes" "$(printf '%s' "$out" | grep -q 'AI
 mkdir -p "$TMP/fakegh"
 cat > "$TMP/fakegh/gh" <<'G'
 #!/usr/bin/env bash
-q=""
+q=.
 data=$FAKE_GH_JSON
 [ "$1" = issue ] && data=${FAKE_GH_ISSUES:-/dev/null}
 while [ $# -gt 0 ]; do case "$1" in --jq) q="$2"; shift 2 ;; *) shift ;; esac; done
@@ -583,7 +583,7 @@ git -C "$GR" checkout -q -b feat/x
 check "guard: bare push on a feature branch" "allow" "$(guard 'git push')"
 
 # Review status: results of the gates in CI (decision 0024)
-printf '{"check_runs":[{"name":"gates (test)","status":"completed","conclusion":"failure","completed_at":"2026-11-27T09:00:00Z"},{"name":"gates (test)","status":"completed","conclusion":"success","completed_at":"2026-11-27T10:00:00Z"},{"name":"gates (lint)","status":"completed","conclusion":"failure","completed_at":"2026-11-27T10:00:00Z"},{"name":"gates (sast)","status":"in_progress","conclusion":null,"completed_at":null}]}\n' > "$TMP/rs-checks.json"
+printf '{"check_runs":[{"name":"gates (test)","status":"completed","app":{"slug":"github-actions"},"conclusion":"failure","completed_at":"2026-11-27T09:00:00Z"},{"name":"gates (test)","status":"completed","app":{"slug":"github-actions"},"conclusion":"success","completed_at":"2026-11-27T10:00:00Z"},{"name":"gates (lint)","status":"completed","app":{"slug":"github-actions"},"conclusion":"failure","completed_at":"2026-11-27T10:00:00Z"},{"name":"gates (sast)","status":"in_progress","conclusion":null,"completed_at":null}]}\n' > "$TMP/rs-checks.json"
 out=$("$ROOT/harness/scripts/review-status.sh" gates --sha "$SHA_A" --checks-json "$TMP/rs-checks.json" | tr '\t\n' ':,')
 check "status gates: newest completed result per gate, none without one" "test:success,typecheck:none,lint:failure,sast:none,deps:none,drift:none," "$out"
 
@@ -845,7 +845,7 @@ printf 'done\n' > "$GSR/docs/specs/0001-x.md"; gsgit add -A; gsgit commit -q -m 
 docs=$(gsgit rev-parse HEAD)
 printf 'b\n' > "$GSR/src/a.ts"; gsgit add -A; gsgit commit -q -m code2
 code2=$(gsgit rev-parse HEAD)
-printf '{"check_runs":[{"name":"gates (test)","status":"completed","conclusion":"success","completed_at":"2026-11-27T10:00:00Z"},{"name":"gates (deps)","status":"completed","conclusion":"failure","completed_at":"2026-11-27T10:00:00Z"}]}\n' > "$TMP/gs-checks.json"
+printf '{"check_runs":[{"name":"gates (test)","status":"completed","app":{"slug":"github-actions"},"conclusion":"success","completed_at":"2026-11-27T10:00:00Z"},{"name":"gates (deps)","status":"completed","app":{"slug":"github-actions"},"conclusion":"failure","completed_at":"2026-11-27T10:00:00Z"}]}\n' > "$TMP/gs-checks.json"
 f=$(gsf src/a.ts docs/specs/0001-x.md frontend/pnpm-lock.yaml)
 since() { gs "$1" --root "$GSR" --matrix "$ROOT/harness/risk-matrix.yml" --files-from "$f" --checks-json "$TMP/gs-checks.json" --since "$2" --head "$3"; }
 check "scope: a documents push takes over a passed check" "skip" "$(since test "$code" "$docs")"
@@ -855,7 +855,43 @@ check "scope: a code push runs" "run" "$(since test "$docs" "$code2")"
 check "scope: a force push (no ancestor) runs" "run" "$(since test "$code2" "$docs")"
 check "scope: lint runs after a documents push" "run" "$(since lint "$code" "$docs")"
 check "scope: the takeover names the commit" "yes" "$("$GS" --gate test --config "$TMP/gs-on.yml" --root "$GSR" --files-from "$f" --checks-json "$TMP/gs-checks.json" --since "$code" --head "$docs" | grep -q "passed on ${code:0:7}" && echo yes || echo no)"
-check "scope: the workflow asks the script" "yes" "$(grep -q 'gate-scope.sh' "$ROOT/.github/workflows/quality-gates.yml" && echo yes || echo no)"
+check "scope: a manifest under docs/ is not a document" "run" "$(gs deps --files-from "$(gsf docs/site/package.json README.md)")"
+check "scope: a gate file under docs/ is not a document" "run" "$(gs test --files-from "$(gsf docs/build.mk)")"
+printf '{"check_runs":[{"name":"gates (test)","status":"completed","app":{"slug":"other-app"},"conclusion":"success","completed_at":"2026-11-27T10:00:00Z"}]}\n' > "$TMP/gs-foreign.json"
+check "scope: a check of another app is not taken over" "run" "$(gs test --root "$GSR" --matrix "$ROOT/harness/risk-matrix.yml" --files-from "$f" --checks-json "$TMP/gs-foreign.json" --since "$code" --head "$docs")"
+check "status gates: a check of another app does not count" "test	none" "$("$ROOT/harness/scripts/review-status.sh" gates --sha "$SHA_A" --checks-json "$TMP/gs-foreign.json" | head -1)"
+check "status gates: an option without a value is a usage error" "2" "$("$ROOT/harness/scripts/review-status.sh" gates --sha "$SHA_A" --checks-json >/dev/null 2>&1; echo $?)"
+awk '/- name: Gate active/ { f=1 } f && /^        run: \|/ { r=1; next } r && /^      - / { exit } r { sub(/^          /, ""); print }' \
+  "$ROOT/.github/workflows/quality-gates.yml" > "$TMP/gate-step.sh"
+GW="$TMP/gw"
+mkdir -p "$GW/harness/scripts" "$GW/src" "$GW/docs/specs"
+cp "$ROOT/harness/scripts/gate-scope.sh" "$GW/harness/scripts/"
+cp "$ROOT/harness/risk-matrix.yml" "$GW/harness/"
+printf 'contracts_generate_target: ""\ne2e_in_ci: false\n' > "$GW/harness/config.yml"
+gwgit() { git -C "$GW" -c user.email=t@example.com -c user.name=t "$@"; }
+gwgit init -q -b main && gwgit add -A && gwgit commit -q -m base
+gwgit update-ref refs/remotes/origin/main HEAD
+gwgit checkout -q -b change
+printf 'a\n' > "$GW/src/a.ts"; gwgit add -A; gwgit commit -q -m code
+gw_code=$(gwgit rev-parse HEAD)
+printf 'done\n' > "$GW/docs/specs/0001-x.md"; gwgit add -A; gwgit commit -q -m spec
+gw_docs=$(gwgit rev-parse HEAD)
+printf '{"check_runs":[{"name":"gates (test)","status":"completed","app":{"slug":"github-actions"},"conclusion":"success","completed_at":"2026-11-27T10:00:00Z"}]}\n' > "$TMP/gw-checks.json"
+step() {
+  : > "$TMP/gw.out"
+  (cd "$GW" && env GATE="$1" EVENT="$2" ACTION="$3" BEFORE="$4" HEAD_SHA="$gw_docs" BASE=main \
+    GITHUB_WORKSPACE="$GW" RUNNER_TEMP="$TMP/gw-runner" GITHUB_OUTPUT="$TMP/gw.out" GITHUB_REPOSITORY=o/r \
+    PATH="$TMP/fakegh:$PATH" FAKE_GH_JSON="$TMP/gw-checks.json" bash -e "$TMP/gate-step.sh" >/dev/null 2>&1)
+  cat "$TMP/gw.out"
+}
+mkdir -p "$TMP/gw-runner"
+check "workflow step: a documents push takes over the passed test" "run=false" "$(step test pull_request synchronize "$gw_code")"
+check "workflow step: a new pull request with code runs test" "run=true" "$(step test pull_request opened "")"
+check "workflow step: deps without a manifest is skipped" "run=false" "$(step deps pull_request opened "")"
+check "workflow step: a push to main runs deps" "run=true" "$(step deps push "" "")"
+check "workflow step: drift without a generator is skipped" "run=false" "$(step drift push "" "")"
+gwgit checkout -q main && gwgit rm -q harness/scripts/gate-scope.sh && gwgit commit -q -m old && gwgit update-ref refs/remotes/origin/main HEAD && gwgit checkout -q change
+check "workflow step: without the script on the base the old rules apply" "run=true" "$(step deps pull_request opened "")"
 
 # Stack versions (harness/scripts/stack-check.sh)
 SK="$ROOT/harness/scripts/stack-check.sh"

@@ -51,7 +51,8 @@ the base branch):
 - `drift` runs only with `contracts_generate_target`, `e2e` only with `e2e_in_ci: true`; the config
   of the pull request may switch either on, never off.
 - Gate files: `Makefile`, `*.mk`, `harness/risk-matrix.yml`, `harness/scripts/gate-scope.sh`,
-  `stack-check.sh`, `drift.sh`, `.github/workflows/`, `.github/actions/`.
+  `harness/scripts/stack-check.sh`, `harness/scripts/drift.sh`, `.github/workflows/`,
+  `.github/actions/`.
 - A push to a pull request whose commits since the push before change only documents takes over
   the result `success` of each gate on the commit before (the push of `verify`, the push that
   writes `pr:` into the spec). `lint` and `sast` run again.

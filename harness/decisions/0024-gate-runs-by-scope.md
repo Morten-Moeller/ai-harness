@@ -57,8 +57,8 @@ Rules for a pull request, by the files of the whole pull request (`base...head`)
 - A skipped job passes without the setup action, with the reason in its log. The check names stay,
   so the ruleset does not change.
 - Files that define a gate count as "anything else" for `deps`: `Makefile`, `*.mk`,
-  `harness/risk-matrix.yml`, `harness/scripts/gate-scope.sh`, `stack-check.sh`, `drift.sh`,
-  `.github/workflows/`, `.github/actions/`.
+  `harness/risk-matrix.yml`, `harness/scripts/gate-scope.sh`, `harness/scripts/stack-check.sh`,
+  `harness/scripts/drift.sh`, `.github/workflows/`, `.github/actions/`.
 - `drift` and `e2e` keep their switches (0012, 0013). The base config decides; the config of the
   pull request may switch a gate on, never off.
 
@@ -118,6 +118,12 @@ Not chosen:
   documents-only change. The changelog names it; such a project moves the files or keeps the old
   workflow until a key for it exists.
 - Decision 2 calls the GitHub API once per job. Without an answer the gate runs.
+- The pull request that brings `gate-scope.sh` cannot read it from the base branch. Until it is
+  merged, `quality-gates.yml` runs the copy of the pull request with `--event push`, which applies
+  only the switches of `drift` and `e2e`, as before. A file of the base branch that is missing
+  (matrix, config) is taken from the pull request, as in `ai-review.yml`.
+- A gate that `gate-scope.sh` skipped has the conclusion `success`. `verify` cannot tell it from a
+  run; its line `Automatisch` says `CI <sha>` for both.
 - Tests: `harness/scripts/tests/` gets cases for `gate-scope.sh` (each row of the table, each
   gate, `--since` with a force push, with a code change, with a failed check before, the rules of
   `drift` and `e2e` moved from the workflow) and for the new subcommand of `review-status.sh` with

@@ -31,6 +31,7 @@ cmd="${1:-}"
 [ $# -gt 0 ] && shift
 SHA=""; FILE=""; NOTE=""; REPO=""; STATE=""; DESCRIPTION=""; PR=""; COMMITS_FROM=""; CHECKS_JSON=""
 while [ $# -gt 0 ]; do
+  case "$1" in -h|--help) ;; *) [ $# -ge 2 ] || { echo "$1 needs a value" >&2; exit 2; } ;; esac
   case "$1" in
     --sha) SHA="$2"; shift 2 ;;
     --file) FILE="$2"; shift 2 ;;
@@ -123,7 +124,8 @@ case "$cmd" in
     fi
     for gate in test typecheck lint sast deps drift; do
       result=$(printf '%s' "$checks" | jq -r --arg n "gates ($gate)" '
-        [.check_runs[]? | select(.name == $n and .status == "completed")] | sort_by(.completed_at) | last | .conclusion // "none"
+        [.check_runs[]? | select(.name == $n and .status == "completed" and .app.slug == "github-actions")]
+        | sort_by(.completed_at) | last | .conclusion // "none"
       ')
       printf '%s\t%s\n' "$gate" "$result"
     done

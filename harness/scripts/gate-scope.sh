@@ -17,11 +17,13 @@
 #   lint and sast always run.
 #   An event other than pull_request (a push to the default branch, workflow_dispatch) runs every
 #   gate.
-#   A pull request whose files are all documents (docs/**, *.md) skips test, typecheck and deps.
+#   A pull request whose files are all documents (docs/**, *.md) skips test, typecheck and deps. A
+#   dependency manifest or a gate file is never a document, also under docs/.
 #   deps runs only when a file is a dependency manifest (dependency_manifests of the matrix),
 #   harness/config.yml, osv-scanner.toml, or a file that defines the gates (see GATE_FILES).
 #   --since: a push whose commits since <sha> change only documents takes over the result of the
-#   check "gates (<gate>)" on <sha> when it is success and <sha> is an ancestor of --head. The
+#   check "gates (<gate>)" of the app github-actions on <sha> when it is success and <sha> is an
+#   ancestor of --head. The
 #   result comes from --checks-json (a check-runs response of the GitHub API) or from the API.
 set -euo pipefail
 
@@ -133,14 +135,15 @@ gate_file=0
 manifest=0
 res=$(manifest_res)
 while IFS= read -r f; do
-  is_doc "$f" || docs_only=0
-  if [[ "$f" =~ $GATE_FILES ]]; then gate_file=1; fi
+  special=0
+  if [[ "$f" =~ $GATE_FILES ]]; then gate_file=1; special=1; fi
   while IFS= read -r re; do
     [ -n "$re" ] || continue
-    if [[ "$f" =~ $re ]]; then manifest=1; break; fi
+    if [[ "$f" =~ $re ]]; then manifest=1; special=1; break; fi
   done <<EOF
 $res
 EOF
+  if [ "$special" = 1 ] || ! is_doc "$f"; then docs_only=0; fi
 done < "$FILES"
 
 if [ "$docs_only" = 1 ]; then
@@ -165,7 +168,8 @@ else
   checks=$(gh api "repos/$repo/commits/$SINCE/check-runs?per_page=100" 2>/dev/null || true)
 fi
 conclusion=$(printf '%s' "$checks" | jq -r --arg n "gates ($GATE)" '
-  [.check_runs[]? | select(.name == $n and .status == "completed")] | sort_by(.completed_at) | last | .conclusion // ""
+  [.check_runs[]? | select(.name == $n and .status == "completed" and .app.slug == "github-actions")]
+  | sort_by(.completed_at) | last | .conclusion // ""
 ' 2>/dev/null || true)
 [ "$conclusion" = success ] || run
 skip "the commits since ${SINCE:0:7} change only documents; gates ($GATE) passed on ${SINCE:0:7}."
