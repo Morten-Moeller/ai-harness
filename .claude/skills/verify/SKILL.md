@@ -94,7 +94,8 @@ The output of a failing check goes to the chat, not into the body.
 ## 7. Spec state
 
 Passed means: every check green and no criterion `nicht erfüllt`. `nicht prüfbar` alone does not
-block it; name it in the summary so the person decides.
+block it; name it in the summary so the person decides, and for a level exempt from G2 open the
+task of step 8.
 
 - Passed: `status: done`, `pr: "#<n>"` in the spec front matter. It reaches the default branch
   only with the merge, so `done` is true there. Otherwise `status: in Arbeit`.
@@ -105,17 +106,48 @@ block it; name it in the summary so the person decides.
   the new commit changes only `docs/specs/`, so its state is `übernommen`.
 - No spec (the harness repository, a change without spec) or nothing changed: no commit.
 
-## 8. Status
+## 8. Task for a person
+
+Only when the pull request is exempt from G2 and a criterion is `nicht prüfbar` (decision 0023).
+Exempt: `human_gate_for` in `harness/config.yml` of the base branch
+(`git show origin/<base>:harness/config.yml`; missing key = `medium`) does not name the level of
+`harness/scripts/risk-level.sh --base origin/<base> --format level`, the level is not in
+`second_reviewer_for`, and the pull request has no label `needs-human`. With G2 the person reads
+the table before the label; no issue.
+
+1. Look for the issue of this pull request: `gh issue list --state open --search "in:title #<n>)"
+   --json number,title`, a title that ends with `#<n>)`.
+2. Body in `doc_language`, in a scratchpad file: links to the spec and the pull request, the
+   checked commit, and per criterion `nicht prüfbar` its number and text, the reason, and the steps
+   for the check by hand (screen, test data state from `.claude/skills/test-data/SKILL.md`,
+   expected result). Last line: a criterion that fails is a new spec of type `fix` with this issue
+   number (`/spec`).
+3. No issue: `gh issue create --title "Prüfen: <spec title> (<NNNN>, #<n>)" --assignee @me
+   --body-file <file>`. An issue exists: `gh issue comment <issue> --body-file <file>`. No label.
+4. The line `Geprüft:` of the PR body gets `, offen zur Prüfung: #<issue>`; write the body again.
+5. `gh issue create` or `gh issue comment` fails (issues switched off, no permission): report the
+   output, set no status in step 9, and stop. Code with an unchecked criterion does not merge
+   without its task.
+
+## 9. Status
 
 `harness/scripts/review-status.sh verify --sha <head> --state <success|failure> --description
 "<YYYY-MM-DD>, geprüft auf <checked SHA 7>[, <n> nicht prüfbar]"`. `<head>` is the commit after the
 push of step 7 (`git rev-parse HEAD`), or the checked commit when step 7 made none. `success` when
 passed, `failure` otherwise. A later push has no status; `human-gate` then fails for the levels in
-`verify_required_for` (`harness/config.yml`) until `verify` runs again.
+`verify_required_for` (`harness/config.yml`) and the exempt levels until `verify` runs again.
 
-## 9. Summary
+A commit status starts no workflow, so `human-gate` does not see it by itself. After `success`:
+the newest run of `auto-merge.yml` for the head
+(`gh run list --workflow auto-merge.yml --commit <head> --limit 1 --json databaseId,conclusion`);
+when its conclusion is `failure`, `gh run rerun <id> --failed`. Its jobs read the labels and the
+statuses again: an exempt level, or a label set before this status, then merges.
 
-PR, spec status, the status `verified`, failing checks with output, criteria not met or not
-testable, the branch checked out before. The working tree stays on the PR branch. Do not report
-passing checks. Outside `implement`, the next step: the person reads the PR and sets the label
-`human-approved` after this push; started from `implement`, return the result to it.
+## 10. Summary
+
+PR, spec status, the status `verified`, the issue of step 8, failing checks with output, criteria
+not met or not testable, the branch checked out before. The working tree stays on the PR branch.
+Do not report passing checks. Outside `implement`, the next step: for an exempt level GitHub
+merges after the required checks, the person checks the issue later; otherwise the person reads
+the PR and sets the label `human-approved` after this push. Started from `implement`, return the
+result to it.

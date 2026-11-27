@@ -104,7 +104,7 @@ in its own git worktree:
 2. `gh pr create --title "<title>" --body-file <body>`.
 3. Low risk: spec front matter `status: done`, `pr: "#<n>"`, `updated` today. It reaches the
    default branch only with the merge. Commit `docs(specs): <NNNN> PR #<n>`, push. Medium and high
-   risk: no commit here; `verify` writes the state in step 9.
+   risk: no commit here; `verify` writes the state (step 9 below).
 4. Run the skill `review` with `<n>`. The result exists already; the skill sets the status
    `ai-review`.
 
@@ -115,8 +115,8 @@ in its own git worktree:
    by this change: fix, `make check`, commit, push, run `review` with `<n>`, watch again. At most
    two rounds. Not caused by this change (a missing tool, a check that fails on the base branch):
    report it with its output.
-3. `human-gate` is red for medium and high risk until `verify` passed (step 9) and the person set
-   the label. That is the expected state.
+3. `human-gate` is red for medium and high risk until `verify` passed (step 9) and, unless
+   `human_gate_for` exempts the level, the person set the label. That is the expected state.
 4. The PR body changes when the facts change (a criterion now has another test): edit it with
    `gh pr edit <n> --body-file <file>`.
 
@@ -138,9 +138,10 @@ In the chat, in `doc_language`:
 - PR URL, risk level, the gates that apply.
 - The review result: blocking findings left, notes, one line each with file and line.
 - The verification: the status `verified`, criteria `nicht erfüllt` or `nicht prüfbar` with the
-  reason.
+  reason, the issue `Prüfen: …` when `verify` opened one.
 - Gates skipped locally, end-to-end specs not run, failing checks with output.
-- The next step: low risk merges after the required checks; medium and high risk wait for the
-  person's review and the label `human-approved` after the last push, then GitHub merges.
+- The next step: low risk, and a level that `human_gate_for` exempts, merges after the required
+  checks; the other levels wait for the person's review and the label `human-approved` after the
+  last push, then GitHub merges.
 
 Do not report passing checks. Labels, PR reviews and the merge are not part of this skill.

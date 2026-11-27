@@ -14,6 +14,9 @@
 # = success; pull requests by bots are exempt. An approval counts only from an account with the
 # permission write, maintain or admin. When G2 passes and the head has no status ai-review = success,
 # the output names it: the ruleset requires that status, so the merge waits for it (decision 0022).
+# G2 applies to the levels in human_gate_for (decision 0023): "medium" (default) medium and high,
+# "high" only high, "" none. An exempt level needs the status verified (pull requests by bots
+# excepted, as for G3). The label needs-human or a level in second_reviewer_for puts G2 back.
 # Exit 0: the gate passes. Exit 1: the gate fails; the output says why. Exit 2: usage error.
 set -euo pipefail
 
@@ -94,6 +97,11 @@ case "$verify_for" in
   ""|high|medium) ;;
   *) fail "harness/config.yml: verify_required_for has the unknown value '$verify_for'. Allowed: \"\", high, medium." ;;
 esac
+gate_for=$(cfg human_gate_for medium)
+case "$gate_for" in
+  ""|high|medium) ;;
+  *) fail "harness/config.yml: human_gate_for has the unknown value '$gate_for'. Allowed: \"\", high, medium." ;;
+esac
 label=$(cfg human_approval_label human-approved)
 if [ -n "$label" ]; then
   if ! [[ "$label" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || [ "$label" = needs-human ]; then
@@ -101,11 +109,44 @@ if [ -n "$label" ]; then
   fi
 fi
 
+need_second=0
+case "$second" in
+  high) [ "$LEVEL" = high ] && need_second=1 ;;
+  medium) need_second=1 ;;
+esac
+
+load_labels() {
+  [ "$LABELS_SET" = 1 ] && return 0
+  # shellcheck disable=SC2046
+  LABELS=$(gh pr view "$PR" $(gh_repo) --json labels --jq '[.labels[].name] | join(",")')
+  LABELS_SET=1
+}
+
+exempt=0
+case "$gate_for" in
+  "") exempt=1 ;;
+  high) [ "$LEVEL" = medium ] && exempt=1 ;;
+esac
+if [ "$exempt" = 1 ] && [ "$need_second" = 1 ]; then
+  echo "Risk $LEVEL: second_reviewer_for: $second applies, so human_gate_for does not exempt this level."
+  exempt=0
+fi
+if [ "$exempt" = 1 ]; then
+  load_labels
+  case ",$LABELS," in
+    *,needs-human,*)
+      echo "Risk $LEVEL: the label needs-human is set, so G2 applies although human_gate_for exempts this level."
+      exempt=0
+      ;;
+  esac
+fi
+
 need_verify=0
 case "$verify_for" in
   high) [ "$LEVEL" = high ] && need_verify=1 ;;
   medium) need_verify=1 ;;
 esac
+[ "$exempt" = 1 ] && need_verify=1
 if [ "$need_verify" = 1 ] && [[ "$AUTHOR" == *"[bot]" ]]; then
   echo "Author $AUTHOR is a bot: G3 does not apply, CI is its check."
   need_verify=0
@@ -138,9 +179,17 @@ if [ "$need_verify" = 1 ]; then
   verified=$(jq -r '[.statuses[]? | select(.context == "verified")] | first | .state // ""' "$TMP/status.json")
   case "$verified" in
     success) echo "Risk $LEVEL: verified on commit $short (G3)." ;;
-    "") fail "Risk $LEVEL: commit $short has no status verified (G3). The session runs verify after its last push, or a person runs /verify $PR. Set the label after that push." ;;
+    "")
+      [ "$exempt" = 1 ] && fail "Risk $LEVEL: commit $short has no status verified. human_gate_for exempts this level from G2, so verified is required (decision 0023). The session runs verify after its last push, or a person runs /verify $PR."
+      fail "Risk $LEVEL: commit $short has no status verified (G3). The session runs verify after its last push, or a person runs /verify $PR. Set the label after that push." ;;
     *) fail "Risk $LEVEL: verify reports $verified on commit $short (G3): a criterion is not met or a check failed. The criteria table in the PR body names it." ;;
   esac
+fi
+
+if [ "$exempt" = 1 ]; then
+  evidence="the head is verified"
+  [ "$need_verify" = 1 ] || evidence="CI is the check of a bot"
+  passed_g2 "Risk $LEVEL: human_gate_for: ${gate_for:-\"\"} exempts this level from G2; $evidence (decision 0023)."
 fi
 
 if [ -n "$REVIEWS_JSON" ]; then
@@ -171,18 +220,10 @@ for login in $candidates; do
 done
 [ -n "$approvers" ] && passed_g2 "Risk $LEVEL: approved on commit $short by $approvers (G2)."
 
-need_second=0
-case "$second" in
-  high) [ "$LEVEL" = high ] && need_second=1 ;;
-  medium) need_second=1 ;;
-esac
 [ "$need_second" = 1 ] && fail "Risk $LEVEL: harness/config.yml requires an approving review on commit $short by a person other than $AUTHOR (second_reviewer_for: $second)."
 [ -n "$label" ] || fail "Risk $LEVEL: the label is switched off (human_approval_label). An approving review on commit $short by a person other than $AUTHOR is required."
 
-if [ "$LABELS_SET" = 0 ]; then
-  # shellcheck disable=SC2046
-  LABELS=$(gh pr view "$PR" $(gh_repo) --json labels --jq '[.labels[].name] | join(",")')
-fi
+load_labels
 case ",$LABELS," in
   *",$label,"*) ;;
   *) fail "Risk $LEVEL: after your review set the label '$label', or get an approving review by another person (G2)." ;;

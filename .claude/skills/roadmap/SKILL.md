@@ -111,7 +111,8 @@ On approval:
    `origin/<default_branch>`, commit, push, `gh pr create`, then the skill `review` with the PR
    number.
 5. `Freigeben und Welle umsetzen`: one spec: stay on its branch and start the skill `implement`
-   with `<NNNN>`. Several: `git switch <default_branch>`, then the skill `wave` with the numbers.
+   with `<NNNN>`. Several, or `wave_continue: true` in `harness/config.yml` (decision 0023):
+   `git switch <default_branch>`, then the skill `wave` with the numbers.
 
 The branches stay local until `implement` pushes them. Summary for `Nur freigeben`: the roadmap,
 the branches, and that `/implement <NNNN>` or `/wave <NNNN> <NNNN> …` starts the work.

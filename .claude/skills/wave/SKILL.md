@@ -1,7 +1,7 @@
 ---
 name: wave
 description: Implement several approved specs at the same time - check that their plans do not overlap (harness/scripts/wave-check.sh), start one implementer agent per spec in its own git worktree, relay the questions of the workers to the person, resume them with the answers and report one table with pull request, risk, review and verification per spec. The session writes no code itself.
-when_to_use: Load when the user runs /wave with several spec numbers, or when the skill roadmap continues after "Freigeben und Welle umsetzen" with more than one spec. Not for one spec; that is implement.
+when_to_use: Load when the user runs /wave with several spec numbers, or when the skill roadmap continues after "Freigeben und Welle umsetzen" with more than one spec or with wave_continue true. Not for one spec without wave_continue; that is implement.
 argument-hint: <NNNN> <NNNN> ...
 ---
 
@@ -9,7 +9,8 @@ argument-hint: <NNNN> <NNNN> ...
 
 Decision 0020. This session orchestrates: each spec is implemented by an `implementer` agent
 (`.claude/agents/implementer.md`) in its own worktree, with the skill `implement` in worker mode,
-up to a reviewed and verified pull request. The merge is never part of this skill.
+up to a reviewed and verified pull request. The merge is never part of this skill; with
+`wave_continue: true` the skill waits for it and starts the next wave (decision 0023).
 
 ## 1. Clean up
 
@@ -69,7 +70,33 @@ In `doc_language`:
 ```
 
 Then the open points of the reports (blocking findings, criteria not met or not testable, gates
-skipped, failing checks with output), the specs that wait with the reason, the worktrees that
-stay, and the next step: low risk merges after the required checks; medium and high risk wait for
-the person's review and the label `human-approved` after the last push; `/wave` for the waiting
-specs once their conflicts are merged.
+skipped, failing checks with output), the issues `Prüfen: …` that `verify` opened, the specs that
+wait with the reason, the worktrees that stay, and the next step: low risk and the levels that
+`human_gate_for` exempts merge after the required checks; the other levels wait for the person's
+review and the label `human-approved` after the last push; `/wave` for the waiting specs once
+their conflicts are merged.
+
+`wave_continue` in `harness/config.yml` is not `true`: stop here.
+
+## 6. Continue
+
+Only with `wave_continue: true`.
+
+1. For each pull request of the wave: `gh pr checks <n> --watch` in the background, then
+   `gh pr view <n> --json state,autoMergeRequest` until `state` is `MERGED`, at most 15 minutes
+   after the checks finished (Monitor with an until-loop, no sleep in the foreground).
+2. A pull request that is not merged then stops the loop: a failed check, `human-gate` waiting for
+   the label (the level is not exempt, or `needs-human` is set), a conflict, auto-merge not
+   enabled. Name the pull request and the reason. The other pull requests of the wave still merge;
+   wait for them, then stop.
+3. All merged: `git fetch -q origin`, `git switch <default_branch>`, `git pull --ff-only`, step 1
+   (clean up), then the waiting specs of this call, and then the next wave of `docs/roadmap.md`:
+   the lowest wave with a spec that is not `done`.
+   - Its specs are `approved` (on the default branch or on their local branches): run this skill
+     again with their numbers, from step 2.
+   - Its specs are missing or `draft`: run the skill `roadmap` with `next`. Its approval question
+     is G0 and G1 of the wave; with `Freigeben und Welle umsetzen` it starts this skill again.
+4. The loop ends with the last wave of the roadmap, a question of a worker that the person leaves
+   open, an answer `Nur freigeben` or `Ändern` to the approval, or a stop of 2. Print the summary
+   of step 5 for every wave, and the open issues `Prüfen: …`
+   (`gh issue list --state open --search "in:title Prüfen:"`).
