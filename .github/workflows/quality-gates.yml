@@ -4,6 +4,11 @@ name: Quality gates
 # The check names `gates (test)` ... are required by harness/github/ruleset.json.
 # `drift` runs only when harness/config.yml names a generator (decision 0012), `e2e` only with
 # e2e_in_ci: true (decision 0013). Otherwise the job passes without setup.
+# Which gate runs for a pull request: harness/scripts/gate-scope.sh from the base branch (decision
+# 0024). A pull request of documents only runs lint and sast; deps runs only with a changed
+# dependency manifest; a push of documents only takes over the passed results of the commit before.
+# A push to the default branch and a dispatch run every gate. A skipped job passes, so the check
+# names of the ruleset stay.
 # workflow_dispatch: branch-cleanup.yml starts the gates for the head of the default branch when a
 # merge through GITHUB_TOKEN started no run (decision 0022).
 
@@ -16,6 +21,7 @@ on:
 
 permissions:
   contents: read
+  checks: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -39,13 +45,37 @@ jobs:
         id: active
         env:
           GATE: ${{ matrix.gate }}
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.base_ref }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          reason=""
-          case "$GATE" in
-            drift) [ -n "$(harness/scripts/drift.sh --print-target)" ] || reason="contracts_generate_target is empty: no generated files to compare." ;;
-            e2e) [ "$(awk '$1 == "e2e_in_ci:" { print $2; exit }' harness/config.yml)" = true ] || reason="e2e_in_ci is not true: the end-to-end tests run locally (project-rules/testing.md)." ;;
-          esac
-          if [ -n "$reason" ]; then echo "$reason"; echo "run=false" >> "$GITHUB_OUTPUT"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
+          script=harness/scripts/gate-scope.sh
+          args=(--gate "$GATE" --event "$EVENT")
+          if [ "$EVENT" = pull_request ]; then
+            if git cat-file -e "origin/$BASE:harness/scripts/gate-scope.sh" 2>/dev/null; then
+              mkdir -p "$RUNNER_TEMP/base"
+              for f in harness/scripts/gate-scope.sh harness/risk-matrix.yml harness/config.yml; do
+                git show "origin/$BASE:$f" > "$RUNNER_TEMP/base/${f##*/}" 2>/dev/null || cp "$f" "$RUNNER_TEMP/base/${f##*/}"
+              done
+              script="$RUNNER_TEMP/base/gate-scope.sh"
+              git diff --name-only "origin/$BASE...$HEAD_SHA" > "$RUNNER_TEMP/files.txt"
+              args+=(--root "$GITHUB_WORKSPACE" --files-from "$RUNNER_TEMP/files.txt"
+                     --matrix "$RUNNER_TEMP/base/risk-matrix.yml" --config "$RUNNER_TEMP/base/config.yml"
+                     --pr-config harness/config.yml)
+              if [ "$ACTION" = synchronize ] && [[ "$BEFORE" =~ ^[0-9a-f]{40}$ ]]; then
+                args+=(--since "$BEFORE" --head "$HEAD_SHA")
+              fi
+            else
+              echo "gate-scope.sh is not on $BASE yet (harness update): the gate runs unless its config switches it off."
+              args=(--gate "$GATE" --event push)
+            fi
+          fi
+          out=$(bash "$script" "${args[@]}")
+          echo "$out"
+          if [ "$out" = run ]; then echo "run=true" >> "$GITHUB_OUTPUT"; else echo "run=false" >> "$GITHUB_OUTPUT"; fi
 
       - uses: ./.github/actions/setup
         if: ${{ steps.active.outputs.run == 'true' }}

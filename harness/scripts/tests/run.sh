@@ -582,6 +582,11 @@ check "guard: bare push on the default branch" "deny" "$(guard 'git push')"
 git -C "$GR" checkout -q -b feat/x
 check "guard: bare push on a feature branch" "allow" "$(guard 'git push')"
 
+# Review status: results of the gates in CI (decision 0024)
+printf '{"check_runs":[{"name":"gates (test)","status":"completed","conclusion":"failure","completed_at":"2026-11-27T09:00:00Z"},{"name":"gates (test)","status":"completed","conclusion":"success","completed_at":"2026-11-27T10:00:00Z"},{"name":"gates (lint)","status":"completed","conclusion":"failure","completed_at":"2026-11-27T10:00:00Z"},{"name":"gates (sast)","status":"in_progress","conclusion":null,"completed_at":null}]}\n' > "$TMP/rs-checks.json"
+out=$("$ROOT/harness/scripts/review-status.sh" gates --sha "$SHA_A" --checks-json "$TMP/rs-checks.json" | tr '\t\n' ':,')
+check "status gates: newest completed result per gate, none without one" "test:success,typecheck:none,lint:failure,sast:none,deps:none,drift:none," "$out"
+
 # Review status (harness/scripts/review-status.sh)
 RS="$ROOT/harness/scripts/review-status.sh"
 c1=1111111111111111111111111111111111111111
@@ -802,6 +807,55 @@ check "lock: an option is not a value" "2" "$(lock "$LR" acquire --owner --wait 
 check "lock: --owner is required" "2" "$(lock "$LR" acquire)"
 check "lock: outside git is a usage error" "2" "$(lock "$TMP/nospecs" status)"
 check "lock: an unknown command is a usage error" "2" "$(lock "$LR" grab --owner a)"
+
+# Gate scope (harness/scripts/gate-scope.sh, decision 0024)
+GS="$ROOT/harness/scripts/gate-scope.sh"
+printf 'contracts_generate_target: ""\ne2e_in_ci: false\n' > "$TMP/gs-off.yml"
+printf 'contracts_generate_target: generate\ne2e_in_ci: true\n' > "$TMP/gs-on.yml"
+gs() { local g=$1; shift; "$GS" --gate "$g" --config "$TMP/gs-on.yml" "$@" 2>&1 | cut -c1-4; }
+gsf() { printf '%s\n' "$@" > "$TMP/gs.files"; echo "$TMP/gs.files"; }
+f=$(gsf docs/specs/0001-x.md README.md)
+for g in test typecheck deps drift e2e; do check "scope: documents only skip $g" "skip" "$(gs $g --files-from "$f")"; done
+for g in lint sast; do check "scope: documents only run $g" "run" "$(gs $g --files-from "$f")"; done
+f=$(gsf src/a.ts docs/a.md)
+for g in test typecheck lint sast drift e2e; do check "scope: code runs $g" "run" "$(gs $g --files-from "$f")"; done
+check "scope: code without a manifest skips deps" "skip" "$(gs deps --files-from "$f")"
+check "scope: a lock file runs deps" "run" "$(gs deps --files-from "$(gsf src/a.ts frontend/pnpm-lock.yaml)")"
+check "scope: a pom runs deps" "run" "$(gs deps --files-from "$(gsf backend/pom.xml)")"
+check "scope: the config runs deps (stack list)" "run" "$(gs deps --files-from "$(gsf harness/config.yml)")"
+check "scope: osv-scanner.toml runs deps" "run" "$(gs deps --files-from "$(gsf osv-scanner.toml)")"
+check "scope: the risk matrix runs deps" "run" "$(gs deps --files-from "$(gsf harness/risk-matrix.yml)")"
+check "scope: a workflow runs deps" "run" "$(gs deps --files-from "$(gsf .github/workflows/quality-gates.yml)")"
+check "scope: the Makefile runs deps" "run" "$(gs deps --files-from "$(gsf Makefile)")"
+check "scope: a push to the default branch runs deps" "run" "$(gs deps --event push --files-from "$(gsf src/a.ts)")"
+check "scope: a dispatch runs test for documents" "run" "$(gs test --event workflow_dispatch --files-from "$(gsf README.md)")"
+check "scope: drift without a generator skips" "skip" "$(gs drift --config "$TMP/gs-off.yml" --files-from "$(gsf src/a.ts)")"
+check "scope: e2e without e2e_in_ci skips" "skip" "$(gs e2e --config "$TMP/gs-off.yml" --event push)"
+check "scope: the config of the pull request may switch e2e on" "run" "$(gs e2e --config "$TMP/gs-off.yml" --pr-config "$TMP/gs-on.yml" --files-from "$(gsf src/a.ts)")"
+check "scope: the config of the pull request cannot switch drift off" "run" "$(gs drift --config "$TMP/gs-on.yml" --pr-config "$TMP/gs-off.yml" --files-from "$(gsf src/a.ts)")"
+check "scope: an unknown gate is a usage error" "2" "$("$GS" --gate build >/dev/null 2>&1; echo $?)"
+check "scope: --since needs --head" "2" "$("$GS" --gate test --since 1111111111111111111111111111111111111111 >/dev/null 2>&1; echo $?)"
+GSR="$TMP/gsr"
+mkdir -p "$GSR/src" "$GSR/docs/specs"
+gsgit() { git -C "$GSR" -c user.email=t@example.com -c user.name=t "$@"; }
+gsgit init -q -b main
+printf 'a\n' > "$GSR/src/a.ts"; gsgit add -A; gsgit commit -q -m code
+code=$(gsgit rev-parse HEAD)
+printf 'done\n' > "$GSR/docs/specs/0001-x.md"; gsgit add -A; gsgit commit -q -m spec
+docs=$(gsgit rev-parse HEAD)
+printf 'b\n' > "$GSR/src/a.ts"; gsgit add -A; gsgit commit -q -m code2
+code2=$(gsgit rev-parse HEAD)
+printf '{"check_runs":[{"name":"gates (test)","status":"completed","conclusion":"success","completed_at":"2026-11-27T10:00:00Z"},{"name":"gates (deps)","status":"completed","conclusion":"failure","completed_at":"2026-11-27T10:00:00Z"}]}\n' > "$TMP/gs-checks.json"
+f=$(gsf src/a.ts docs/specs/0001-x.md frontend/pnpm-lock.yaml)
+since() { gs "$1" --root "$GSR" --matrix "$ROOT/harness/risk-matrix.yml" --files-from "$f" --checks-json "$TMP/gs-checks.json" --since "$2" --head "$3"; }
+check "scope: a documents push takes over a passed check" "skip" "$(since test "$code" "$docs")"
+check "scope: a documents push does not take over a failed check" "run" "$(since deps "$code" "$docs")"
+check "scope: a documents push without a check before runs" "run" "$(since typecheck "$code" "$docs")"
+check "scope: a code push runs" "run" "$(since test "$docs" "$code2")"
+check "scope: a force push (no ancestor) runs" "run" "$(since test "$code2" "$docs")"
+check "scope: lint runs after a documents push" "run" "$(since lint "$code" "$docs")"
+check "scope: the takeover names the commit" "yes" "$("$GS" --gate test --config "$TMP/gs-on.yml" --root "$GSR" --files-from "$f" --checks-json "$TMP/gs-checks.json" --since "$code" --head "$docs" | grep -q "passed on ${code:0:7}" && echo yes || echo no)"
+check "scope: the workflow asks the script" "yes" "$(grep -q 'gate-scope.sh' "$ROOT/.github/workflows/quality-gates.yml" && echo yes || echo no)"
 
 # Stack versions (harness/scripts/stack-check.sh)
 SK="$ROOT/harness/scripts/stack-check.sh"

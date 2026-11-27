@@ -9,6 +9,7 @@
 #   review-status.sh set     --sha <sha> --state <success|failure|pending> --description <text> [--repo <owner/name>]
 #   review-status.sh verify  --sha <sha> --state <success|failure> --description <text> [--repo <owner/name>]
 #   review-status.sh last    --pr <n> [--repo <owner/name>] | --commits-from <file>
+#   review-status.sh gates   --sha <sha> [--repo <owner/name>] [--checks-json <file>]
 #
 # save/load keep the result of a run in .git/ai-harness/review/<sha>.md, local and untracked. The
 # first line of a result is the header
@@ -16,7 +17,10 @@
 # publish sets the status from that header. last prints the newest commit with a saved result,
 # from the commits of the pull request or from --commits-from (one SHA per line, oldest first,
 # e.g. git rev-list --reverse origin/main..HEAD), or nothing. verify sets the status verified that
-# human-gate.sh reads for G3; set is for CI.
+# human-gate.sh reads for G3; set is for CI. gates prints one line "<gate><TAB><result>" per gate
+# of make check, from the newest completed check "gates (<gate>)" on the commit: success, another
+# conclusion, or none. verify runs only the gates that are not success (decision 0024). A gate that
+# gate-scope.sh skipped is success: it had nothing to check, or the commit before passed it.
 # Exit 0: done. Exit 1: no saved result or API error. Exit 2: usage error.
 set -euo pipefail
 
@@ -25,7 +29,7 @@ usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' 
 CONTEXT=ai-review
 cmd="${1:-}"
 [ $# -gt 0 ] && shift
-SHA=""; FILE=""; NOTE=""; REPO=""; STATE=""; DESCRIPTION=""; PR=""; COMMITS_FROM=""
+SHA=""; FILE=""; NOTE=""; REPO=""; STATE=""; DESCRIPTION=""; PR=""; COMMITS_FROM=""; CHECKS_JSON=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --sha) SHA="$2"; shift 2 ;;
@@ -36,6 +40,7 @@ while [ $# -gt 0 ]; do
     --description) DESCRIPTION="$2"; shift 2 ;;
     --pr) PR="$2"; shift 2 ;;
     --commits-from) COMMITS_FROM="$2"; shift 2 ;;
+    --checks-json) CHECKS_JSON="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -107,6 +112,20 @@ case "$cmd" in
     dir=$(state_dir)
     for sha in $(printf '%s\n' "$commits" | awk 'NF { l[++n] = $1 } END { for (i = n; i > 0; i--) print l[i] }'); do
       if [ -f "$dir/$sha.md" ]; then echo "$sha"; exit 0; fi
+    done
+    ;;
+  gates)
+    need_sha
+    if [ -n "$CHECKS_JSON" ]; then
+      checks=$(cat "$CHECKS_JSON")
+    else
+      checks=$(gh api "repos/$(repo)/commits/$SHA/check-runs?per_page=100") || { echo "Could not read the checks of ${SHA:0:7}." >&2; exit 1; }
+    fi
+    for gate in test typecheck lint sast deps drift; do
+      result=$(printf '%s' "$checks" | jq -r --arg n "gates ($gate)" '
+        [.check_runs[]? | select(.name == $n and .status == "completed")] | sort_by(.completed_at) | last | .conclusion // "none"
+      ')
+      printf '%s\t%s\n' "$gate" "$result"
     done
     ;;
   -h|--help) usage ;;

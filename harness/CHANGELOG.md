@@ -2,6 +2,26 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.11.0 (2026-11-27)
+
+Gates run by the scope of the change (decision 0024). A pull request of documents runs `lint` and
+`sast` only, `deps` runs only with a changed dependency manifest, a push of documents takes over
+the passed results of the commit before, and `verify` uses the results of CI.
+
+Not breaking. No ruleset change, no manual step. One effect to know: a project whose tests read
+files under `docs/` or Markdown files no longer runs them for a pull request of documents only.
+
+Changes:
+
+- `harness/scripts/gate-scope.sh`: prints `run` or `skip: <reason>` for one gate. It holds the
+  rules for `drift` and `e2e` that were in the workflow before; the config of the pull request may
+  switch them on, never off.
+- `quality-gates.yml`: the step "Gate active" runs `gate-scope.sh` from the base branch with the
+  files of the pull request, and with `--since` for a push. The workflow has `checks: read`. Until
+  the script is on the base branch, the old rules apply.
+- `review-status.sh gates --sha <sha>`: the result per gate on a commit. `verify` runs only the
+  gates that are not `success` there, and names the source per gate.
+
 ## 0.10.0 (2026-11-27)
 
 The human gate G2 per risk level, and waves that run one after the other (decision 0023). For a

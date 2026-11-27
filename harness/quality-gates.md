@@ -33,9 +33,32 @@ Rules for every target:
 ## CI mapping
 
 `.github/workflows/quality-gates.yml` runs a matrix over `test typecheck lint sast deps drift e2e`.
-Every job checks out the code, runs `.github/actions/setup` (project-owned: toolchain, caches,
-dependency install), then `make <gate>`. `drift` runs only with a generator, `e2e` only with
-`e2e_in_ci: true`; otherwise the job passes without setup.
+Every job checks out the code, asks `harness/scripts/gate-scope.sh` whether its gate runs, then
+runs `.github/actions/setup` (project-owned: toolchain, caches, dependency install) and
+`make <gate>`. A gate that does not run passes without setup and prints the reason, so the check
+names of the ruleset stay.
+
+Which gate runs (decision 0024; on a pull request the script, the matrix and the config come from
+the base branch):
+
+| Change | `test` `typecheck` `drift` `e2e` | `lint` `sast` | `deps` |
+|---|---|---|---|
+| pull request of documents only (`docs/**`, `*.md`) | skip | run | skip |
+| pull request without a dependency manifest, `harness/config.yml`, `osv-scanner.toml` or gate file | run | run | skip |
+| any other pull request | run | run | run |
+| push to the default branch, `workflow_dispatch` | run | run | run |
+
+- `drift` runs only with `contracts_generate_target`, `e2e` only with `e2e_in_ci: true`; the config
+  of the pull request may switch either on, never off.
+- Gate files: `Makefile`, `*.mk`, `harness/risk-matrix.yml`, `harness/scripts/gate-scope.sh`,
+  `stack-check.sh`, `drift.sh`, `.github/workflows/`, `.github/actions/`.
+- A push to a pull request whose commits since the push before change only documents takes over
+  the result `success` of each gate on the commit before (the push of `verify`, the push that
+  writes `pr:` into the spec). `lint` and `sast` run again.
+- A vulnerability published for an unchanged dependency shows on the next run on the default
+  branch, not on a pull request.
+- `verify` reads the results per gate on the head (`review-status.sh gates`) and runs only the
+  gates that are not `success`.
 The check names are `gates (test)`, `gates (typecheck)` and so on; `harness/github/ruleset.json`
 lists them as required.
 
