@@ -261,6 +261,30 @@ if enabled generiert; then
   done || true
 fi
 
+# zeilenende: a text file is stored with LF, as .gitattributes asks (decision 0022). A file with
+# CRLF in the repository shows as modified in every checkout and blocks pull, rebase and stash.
+if enabled zeilenende; then
+  blob_ref=$HEAD_REF
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    git -C "$ROOT" show "$blob_ref:$f" > "$TMP/blob" 2>/dev/null || continue
+    if [ -n "$HEAD_REF" ]; then
+      attr=$(git -C "$ROOT" check-attr --source "$HEAD_REF" text -- "$f" 2>/dev/null || git -C "$ROOT" check-attr text -- "$f" 2>/dev/null || true)
+    else
+      attr=$(git -C "$ROOT" check-attr text -- "$f" 2>/dev/null || true)
+    fi
+    attr=${attr##*: }
+    case "$attr" in set|auto) ;; *) continue ;; esac
+    if [ "$attr" = auto ]; then
+      all=$(head -c 8000 "$TMP/blob" | wc -c | tr -d ' ')
+      text=$(head -c 8000 "$TMP/blob" | tr -d '\000' | wc -c | tr -d ' ')
+      [ "$all" = "$text" ] || continue
+    fi
+    LC_ALL=C grep -q $'\r$' "$TMP/blob" || continue
+    add zeilenende "$f" process ja "CRLF im Repository, .gitattributes verlangt LF (text=$attr). Behebung: git add --renormalize $f, committen, pushen."
+  done < "$TMP/files"
+fi
+
 # kriterium: every acceptance criterion of the spec has evidence in the PR.
 if enabled kriterium && [ -n "$spec_file" ]; then
   head_show "$spec_file" | awk '

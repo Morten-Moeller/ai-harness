@@ -4,12 +4,15 @@ name: Quality gates
 # The check names `gates (test)` ... are required by harness/github/ruleset.json.
 # `drift` runs only when harness/config.yml names a generator (decision 0012), `e2e` only with
 # e2e_in_ci: true (decision 0013). Otherwise the job passes without setup.
+# workflow_dispatch: branch-cleanup.yml starts the gates for the head of the default branch when a
+# merge through GITHUB_TOKEN started no run (decision 0022).
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

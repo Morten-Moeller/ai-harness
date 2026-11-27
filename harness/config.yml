@@ -77,5 +77,5 @@ worktree_setup: "make setup"
 review_combined_max_lines: 150
 
 # Rules of harness/scripts/review-rules.sh to switch off, one per line:
-# spec, adr, entscheidung, gate, kommentar, generiert, kriterium, contract, doku.
+# spec, adr, entscheidung, gate, kommentar, generiert, zeilenende, kriterium, contract, doku.
 review_rules_disabled:

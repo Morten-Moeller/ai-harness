@@ -173,7 +173,9 @@ done < "$TMP/classified"
 
 # Escalators.
 : > "$TMP/escalators"
-if [ "$overall" = low ] && [ "$LINES" -gt "$MAX_LOW_LINES" ]; then
+if [ "$manifests_only" = 1 ] && [ "$dependabot_minor" = 1 ]; then
+  [ "$LINES" -gt "$MAX_LOW_LINES" ] && printf 'size: %s changed lines, not counted for a Dependabot %s update of manifests only\n' "$LINES" "${DEPENDABOT##*-}" >> "$TMP/escalators"
+elif [ "$overall" = low ] && [ "$LINES" -gt "$MAX_LOW_LINES" ]; then
   overall=medium
   printf 'size: %s changed lines > %s, low raised to medium\n' "$LINES" "$MAX_LOW_LINES" >> "$TMP/escalators"
 fi

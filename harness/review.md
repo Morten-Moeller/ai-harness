@@ -37,6 +37,7 @@ even when `ai-review` is green.
 | `generiert` | changed files with a generated-file header | no |
 | `kriterium` | every acceptance criterion of the spec has a row with evidence in the PR body | yes |
 | `contract` | a change under `contracts/` is named in the `## Contracts` section of the spec | yes |
+| `zeilenende` | a changed text file whose content in the head has CRLF although `.gitattributes` sets `text` or `text=auto` (decision 0022); the message names `git add --renormalize <file>` | yes |
 | `doku` | a Markdown file with `sources:` globs in its front matter, whose sources changed while the file did not | no |
 
 The patterns for switched-off checks are the list `gate_markers` in `harness/risk-matrix.yml`.

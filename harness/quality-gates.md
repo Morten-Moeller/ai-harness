@@ -39,6 +39,12 @@ dependency install), then `make <gate>`. `drift` runs only with a generator, `e2
 The check names are `gates (test)`, `gates (typecheck)` and so on; `harness/github/ruleset.json`
 lists them as required.
 
+The workflow also runs on a push to the default branch. A merge through `GITHUB_TOKEN` (auto-merge)
+starts no workflow, so `branch-cleanup.yml` starts `quality-gates.yml` every hour by
+`workflow_dispatch` when the head of the default branch has no run of it (decision 0022). Pull
+requests that merge one after the other are each tested alone; this run tests their combination.
+A failed run shows within the hour and does not undo the merge.
+
 A gate whose tool is missing on a developer machine prints `übersprungen` and passes there; in CI,
 where `CI=true` is set, it fails (`have` in `harness/gates.mk`, decision 0011). Use the same macro
 for tools in the project targets: `@if $(call have,<tool>,<gate>,<install hint>); then ...; fi`.

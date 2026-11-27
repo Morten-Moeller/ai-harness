@@ -24,7 +24,8 @@ There are two paths: low risk without a person, medium and high risk after the p
    documentation only (every file matches a `low` pattern under `docs/` or `*.md`).
 3. **Dependabot** PRs: update type `version-update:semver-patch` or `version-update:semver-minor`
    from `dependabot/fetch-metadata`, and no file outside the manifests and lock files. CI sets
-   `ai-review` for them without an agent.
+   `ai-review` for them without an agent. The size escalator does not apply to them, so a group
+   update with a large lock file diff stays low (decision 0022).
 4. **No label `needs-human`**. CI sets it when the rule check finds a changed gate.
 
 ## Medium and high risk
@@ -32,6 +33,10 @@ There are two paths: low risk without a person, medium and high risk after the p
 1. **`human-gate` passed**: the label `human-approved` set by a person after the last push, or an
    approving review of the head commit by another person (`second_reviewer_for`). The label is the
    merge decision; `needs-human` does not block this path, because a person has looked.
+2. **`ai-review` on the head**: the ruleset requires it. Without a review token in CI only a session
+   sets it for medium and high risk, also for Dependabot major updates and GitHub Actions updates.
+   `human-gate` passes with the label and names the missing status; the session start hook lists
+   the open pull requests without it (decision 0022).
 
 ## Never automatically
 
