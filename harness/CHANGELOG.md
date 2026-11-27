@@ -2,6 +2,43 @@
 
 Versions follow semver. Breaking means: a project needs a manual step after `update.sh`.
 
+## 0.10.0 (2026-11-27)
+
+The human gate G2 per risk level, and waves that run one after the other (decision 0023). For a
+test project the specs of a roadmap run through without a label; the machine evidence and the
+status `verified` replace the person.
+
+Not breaking: without the new keys nothing changes.
+
+Manual steps after `update.sh`:
+
+- `harness/config.yml` (project-owned, `update.sh` shows the diff): add `human_gate_for: medium`
+  and `wave_continue: false`. For a test project: `human_gate_for: ""` and `wave_continue: true`,
+  in a pull request of its own (high risk, judged by the value on the default branch, so it needs
+  the label once).
+- The repository needs issues switched on (`gh repo edit --enable-issues`), when a level is exempt:
+  `verify` opens an issue for each pull request with a criterion it could not check.
+
+Changes:
+
+- `human-gate.sh`: key `human_gate_for` (`medium` default, `high`, `""`; another value fails). An
+  exempt level passes on the status `verified` without the label or an approval, also when
+  `verify_required_for` does not name it; bots stay exempt from `verified`. The label `needs-human`
+  and a level in `second_reviewer_for` put G2 back. The key applies to every author.
+- `verify`: for an exempt level, a criterion `nicht prüfbar` does not block; `verify` opens one
+  issue `Prüfen: <spec title> (<NNNN>, #<n>)` with the steps for the check by hand, or comments on
+  the existing one, before it sets `verified`. Without the issue it sets no status. After
+  `verified` = success it reruns the failed jobs of `auto-merge.yml` for the head, because a commit
+  status starts no workflow.
+- `wave`: key `wave_continue`. With `true` the session waits for the merge of every pull request
+  of the wave and starts the next wave of `docs/roadmap.md` (approved specs at once, new specs
+  through `/roadmap next` and its approval question). A pull request that does not merge stops
+  the loop. `roadmap` starts `wave` also for one spec when the key is `true`.
+- Session start hook: a line when `human_gate_for` is not `medium`, and the open issues
+  `Prüfen: …` by number.
+- `harness/policies/human-approval.md`, `harness/policies/auto-merge.md`, `harness/workflow.md`,
+  the summaries of `implement` and `wave`: the exempt levels.
+
 ## 0.9.0 (2026-11-27)
 
 Dependabot pull requests that merge, and a tested default branch (decision 0022). Found in the
@@ -27,7 +64,8 @@ Changes:
 - `human-gate.sh`: when the label or an approval passes G2, the output names a missing or failed
   status `ai-review` on the head and the command `/review <n>`.
 - Session start hook: lists the open pull requests without `ai-review` = success, with the state
-  and the command. One request to GitHub, at most five seconds; without `gh` or network it prints nothing.
+  and the command. One request to GitHub, at most five seconds; without `gh` or network it prints
+  nothing.
 - `quality-gates.yml`: trigger `workflow_dispatch`. `branch-cleanup.yml` (hourly): job `gates`
   starts it for the head of the default branch when that commit has no run, so a merge through
   auto-merge is tested on the default branch. The job has `actions: write`.

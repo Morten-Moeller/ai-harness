@@ -4,7 +4,8 @@ Automatic merge means: `auto-merge.yml` enables GitHub auto-merge on the pull re
 merges it as soon as every required check is green. No agent runs `gh pr merge`.
 
 There are two paths: low risk without a person, medium and high risk after the person's decision
-(G2, `human-approval.md`). The conditions under Always hold for both.
+(G2, `human-approval.md`) or, for the levels that `human_gate_for` exempts, after `verify`. The
+conditions under Always hold for both.
 
 ## Always
 
@@ -32,7 +33,9 @@ There are two paths: low risk without a person, medium and high risk after the p
 
 1. **`human-gate` passed**: the label `human-approved` set by a person after the last push, or an
    approving review of the head commit by another person (`second_reviewer_for`). The label is the
-   merge decision; `needs-human` does not block this path, because a person has looked.
+   merge decision; `needs-human` does not block this path, because a person has looked. For a
+   level that `human_gate_for` exempts (decision 0023), `human-gate` passes on the status
+   `verified` without a person, unless the pull request has the label `needs-human`.
 2. **`ai-review` on the head**: the ruleset requires it. Without a review token in CI only a session
    sets it for medium and high risk, also for Dependabot major updates and GitHub Actions updates.
    `human-gate` passes with the label and names the missing status; the session start hook lists
@@ -40,7 +43,8 @@ There are two paths: low risk without a person, medium and high risk after the p
 
 ## Never automatically
 
-- Medium or high risk without G2.
+- Medium or high risk without G2, except a level that `human_gate_for` exempts and that has the
+  status `verified`.
 - A PR whose base is not the default branch.
 - A repository without required status checks on the default branch.
 

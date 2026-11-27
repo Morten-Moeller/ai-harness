@@ -63,9 +63,22 @@ second_reviewer_for: ""
 # Pull requests by bots are exempt.
 verify_required_for: high
 
+# Gate G2 per level (decision 0023): "medium" (the default when the key is missing) needs the
+# label or an approval for medium and high, "high" only for high, "" for no level. An exempt level
+# merges on the machine evidence: the gates, review-rules, ai-review and the status verified, which
+# is then required whatever verify_required_for says. Pull requests by bots need no verified, so
+# a Dependabot update of an exempt level merges without a person. The label needs-human on a pull request and a
+# level in second_reviewer_for put G2 back. Meant for test projects, never for production data.
+human_gate_for: medium
+
 # /wave (decision 0020): at most this many specs are implemented at the same time, one worktree
 # and one implementer agent each. 1 runs one spec at a time.
 parallel_max: 3
+
+# /wave (decision 0023): true waits for the merge of every pull request of a wave, then starts the
+# next wave of docs/roadmap.md (approved specs at once, new specs after the approval question). A
+# pull request that does not merge stops the loop. false ends at the pull requests.
+wave_continue: false
 
 # Command a worker runs in its new worktree before it implements, as one quoted string. Add the
 # dependency install of the project, for example "make setup && pnpm -C frontend install".

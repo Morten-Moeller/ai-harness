@@ -25,7 +25,8 @@ For a new project, or a goal that needs several specs (decisions 0019 and 0020):
   overlap, or more than `parallel_max` (`harness/config.yml`), wait. One `implementer` agent per
   spec runs `implement` in worker mode in its own git worktree, up to a verified pull request. The
   session asks the person the questions of the workers and reports one table. G2 and G3 stay per
-  pull request.
+  pull request. With `wave_continue: true` the session waits for the merge of the wave and starts
+  the next one (decision 0023); with `human_gate_for: ""` a roadmap runs through without a label.
 - One worktree at a time runs the application: `verify` and the end-to-end step of `implement`
   take `harness/scripts/app-lock.sh`. Tests take free ports (T3.6 in `harness/testing.md`).
 
@@ -85,7 +86,12 @@ Three independent sources of evidence:
 the PR and sets the label `human-approved` after the last push, or a second person approves the
 head commit (required when `second_reviewer_for` in `harness/config.yml` names the level). The
 `human-gate` check in `auto-merge.yml` passes only then, and the same workflow enables auto-merge.
-Low risk passes the gate without a review.
+Low risk passes the gate without a review. `human_gate_for` in `harness/config.yml` sets the
+levels of G2 (decision 0023): `medium` (default) medium and high, `high` only high, `""` none. An
+exempt level merges on the machine evidence and needs the status `verified`; the label
+`needs-human` puts G2 back on one pull request. A criterion that `verify` cannot check becomes an
+issue `Prüfen: …` for the person, checked after the merge; a criterion that fails then is a new
+`fix` spec.
 
 **Gate G3, verification evidence.** High risk needs the status `verified` = `success` on the head
 commit; `human-gate` checks it before G2. `verify_required_for` in `harness/config.yml` sets the
@@ -96,7 +102,8 @@ exempt.
 
 - GitHub merges with auto-merge after every required check is green. `auto-merge.yml` enables it
   for low risk when the conditions in `harness/policies/auto-merge.md` hold, and for medium and
-  high risk when `human-gate` passed.
+  high risk when `human-gate` passed (with the label, an approval, or for a level that
+  `human_gate_for` exempts, the status `verified`).
 - No agent merges. `gh pr merge` is denied for agents.
 - The spec is `done` with the PR number before the merge, written by `verify` (medium, high) or
   `implement` (low) on the PR branch. It reaches the default branch with the merge, so no pull

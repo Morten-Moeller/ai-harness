@@ -145,9 +145,12 @@ mkdir -p "$TMP/fakegh"
 cat > "$TMP/fakegh/gh" <<'G'
 #!/usr/bin/env bash
 q=""
+data=$FAKE_GH_JSON
+[ "$1" = issue ] && data=${FAKE_GH_ISSUES:-/dev/null}
 while [ $# -gt 0 ]; do case "$1" in --jq) q="$2"; shift 2 ;; *) shift ;; esac; done
 [ -n "${FAKE_GH_SLEEP:-}" ] && sleep "$FAKE_GH_SLEEP"
-jq -r "$q" "$FAKE_GH_JSON"
+[ "$data" = /dev/null ] && exit 0
+jq -r "$q" "$data"
 G
 chmod +x "$TMP/fakegh/gh"
 cat > "$TMP/prs.json" <<'J'
@@ -156,8 +159,15 @@ cat > "$TMP/prs.json" <<'J'
  {"number":17,"title":"feat: draft","isDraft":true,"statusCheckRollup":[]},
  {"number":18,"title":"feat: failed","isDraft":false,"statusCheckRollup":[{"__typename":"StatusContext","context":"ai-review","state":"FAILURE"}]}]
 J
-hook() { CLAUDE_PROJECT_DIR="$ROOT" PATH="$TMP/fakegh:$PATH" FAKE_GH_JSON="$TMP/prs.json" "$ROOT/.claude/hooks/session-context.sh"; }
+printf '[{"number":21,"title":"Prüfen: Login (0004, #19)"},{"number":22,"title":"Bug in Prüfen: x"}]\n' > "$TMP/issues.json"
+hook() { CLAUDE_PROJECT_DIR="$ROOT" PATH="$TMP/fakegh:$PATH" FAKE_GH_JSON="$TMP/prs.json" FAKE_GH_ISSUES="$TMP/issues.json" "$ROOT/.claude/hooks/session-context.sh"; }
 check "session hook names pull requests without ai-review = success" "  #15: ai-review none, /review 15|  #18: ai-review failure, /review 18" "$(hook | grep '#1[5678]' | tr '\n' '|' | sed 's/|$//')"
+check "session hook lists the open issues Prüfen by number" "  #21" "$(hook | grep -A1 'check by a person' | tail -1)"
+mkdir -p "$TMP/hookroot/harness"
+printf 'human_gate_for: ""\n' > "$TMP/hookroot/harness/config.yml"
+check "session hook names human_gate_for when it is empty" "yes" "$(CLAUDE_PROJECT_DIR="$TMP/hookroot" "$ROOT/.claude/hooks/session-context.sh" | grep -q 'human_gate_for: "". Risk medium and high merge without the label' && echo yes || echo no)"
+printf 'human_gate_for: medium\n' > "$TMP/hookroot/harness/config.yml"
+check "session hook is silent about human_gate_for medium" "" "$(CLAUDE_PROJECT_DIR="$TMP/hookroot" "$ROOT/.claude/hooks/session-context.sh" | grep 'human_gate_for' || true)"
 check "session hook stays silent when gh does not answer in time" "" "$(FAKE_GH_SLEEP=8 hook | grep 'ai-review' || true)"
 out=$(echo '{"hook_event_name":"Stop","stop_hook_active":false}' | CLAUDE_PROJECT_DIR="$ROOT" "$ROOT/.claude/hooks/stop-reminder.sh"; echo "exit=$?")
 check "stop hook exits 0" "exit=0" "$(printf '%s' "$out" | tail -1)"
@@ -306,6 +316,31 @@ check "gate: the label names a missing ai-review and /review" yes "$(gate_out --
 check "gate: the label names a failed ai-review" yes "$(gate_out --level medium --statuses-json "$TMP/review-failed.json" | grep -q 'ai-review = failure' && echo yes || echo no)"
 check "gate: no note with ai-review = success" "" "$(gate_out --level medium --statuses-json "$TMP/verified-ok.json" | grep 'ai-review' || true)"
 check "gate: an approval names a missing ai-review" yes "$(gate_out --level medium --labels "" --reviews-json "$TMP/approved-a.json" --permissions "reviewer=write" --statuses-json "$TMP/review-none.json" | grep -q 'no status ai-review' && echo yes || echo no)"
+gate_for_cfg() {
+  printf 'human_approval_label: human-approved\nsecond_reviewer_for: %s\nverify_required_for: high\nhuman_gate_for: %s\n' "$2" "$1" > "$TMP/gate-for.yml"
+  echo "$TMP/gate-for.yml"
+}
+c=$(gate_for_cfg '""' '""')
+check "gate 0023: human_gate_for empty passes medium without label when verified" pass "$(gate --level medium --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
+check "gate 0023: human_gate_for empty passes high without label when verified" pass "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
+check "gate 0023: an exempt medium level needs verified although verify_required_for is high" fail "$(gate --level medium --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/verified-none.json")"
+check "gate 0023: the message names human_gate_for" yes "$("$HG" --pr 7 --sha "$SHA_A" --author author --level medium --config "$c" --labels "" --statuses-json "$TMP/verified-none.json" 2>&1 | grep -q 'human_gate_for exempts' && echo yes || echo no)"
+check "gate 0023: verified = failure fails an exempt level" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/verified-failed.json")"
+check "gate 0023: needs-human puts G2 back" fail "$(gate --level medium --config "$c" --labels "needs-human" --reviews-json "$TMP/no-reviews.json")"
+check "gate 0023: needs-human with the label of a person passes" pass "$(gate --level medium --config "$c" --labels "needs-human,human-approved" --reviews-json "$TMP/no-reviews.json")"
+check "gate 0023: the key applies to an author outside the allowlist" pass "$(gate --level medium --config "$c" --author stranger --labels "" --reviews-json "$TMP/no-reviews.json")"
+check "gate 0023: a bot passes an exempt level without verified" pass "$(gate --level high --config "$c" --author "dependabot[bot]" --labels "" --reviews-json "$TMP/no-reviews.json" --statuses-json "$TMP/verified-none.json")"
+c=$(gate_for_cfg high '""')
+check "gate 0023: human_gate_for high exempts medium" pass "$(gate --level medium --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
+check "gate 0023: human_gate_for high keeps G2 for high" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
+c=$(gate_for_cfg medium '""')
+check "gate 0023: human_gate_for medium keeps G2 for medium" fail "$(gate --level medium --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
+check "gate 0023: a missing key keeps G2" fail "$(gate --level medium --config "$TMP/gate-empty.yml" --labels "" --reviews-json "$TMP/no-reviews.json")"
+c=$(gate_for_cfg Medium '""')
+check "gate 0023: an unknown value fails closed" fail "$(gate --level medium --config "$c" --labels human-approved --reviews-json "$TMP/no-reviews.json")"
+c=$(gate_for_cfg '""' high)
+check "gate 0023: second_reviewer_for high is checked first" fail "$(gate --level high --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
+check "gate 0023: second_reviewer_for high leaves medium exempt" pass "$(gate --level medium --config "$c" --labels "" --reviews-json "$TMP/no-reviews.json")"
 check "gate: bad sha is a usage error" "2" "$("$HG" --level medium --pr 7 --sha abc --author author >/dev/null 2>&1; echo $?)"
 
 # Review rules, in a temporary project repository
@@ -831,6 +866,8 @@ check "stack: an option is not a value" "2" "$("$SK" --latest --today 2026-11-23
 check "stack: the harness repository itself passes" "0" "$("$SK" --data-dir "$SV/data" >/dev/null 2>&1; echo $?)"
 check "stack: make deps runs the stack check" "yes" "$(grep -q 'harness/scripts/stack-check.sh' "$ROOT/harness/gates.mk" && echo yes || echo no)"
 check "stack: the daily workflow is harness-owned" "1" "$(grep -cx '.github/workflows/security-watch.yml' "$ROOT/harness/owned-paths.txt")"
+check "gate 0023: the template keeps G2 for medium and high" "human_gate_for: medium" "$(grep '^human_gate_for:' "$ROOT/harness/config.yml")"
+check "gate 0023: the wave loop is off by default" "wave_continue: false" "$(grep '^wave_continue:' "$ROOT/harness/config.yml")"
 check "stack: the daily run is off by default" "security_watch: false" "$(grep '^security_watch:' "$ROOT/harness/config.yml")"
 check "stack: bootstrap copies the stack keys and the workflow" "yes" "$(grep -q '^stack:' "$target/harness/config.yml" && grep -q '^stack_lts_grace_days: 30' "$target/harness/config.yml" && [ -f "$target/.github/workflows/security-watch.yml" ] && [ -f "$target/harness/policies/versions.md" ] && echo yes || echo no)"
 
