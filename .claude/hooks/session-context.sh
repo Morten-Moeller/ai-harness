@@ -20,9 +20,9 @@ unreviewed() {
   git -C "$ROOT" remote get-url origin 2>/dev/null | grep -q 'github\.com' || return 0
   (cd "$ROOT" && gh pr list --state open --limit 50 --json number,isDraft,statusCheckRollup \
     --jq '.[] | select(.isDraft | not)
-          | ([.statusCheckRollup[]? | select(.context == "ai-review") | .state] | first // "none") as $s
-          | select($s != "SUCCESS")
-          | "  #\(.number): ai-review \($s | ascii_downcase), /review \(.number)"')
+          | {n: .number, s: ([.statusCheckRollup[]? | select(.context == "ai-review") | .state] | first // "none")}
+          | select(.s != "SUCCESS")
+          | "  #\(.n): ai-review \(.s | ascii_downcase), /review \(.n)"')
 }
 
 out=$(mktemp 2>/dev/null) || exit 0
